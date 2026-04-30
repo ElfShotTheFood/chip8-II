@@ -272,9 +272,9 @@ class ControlGUI:
 
     def load_test_program(self):
         """Load a test program into memory starting at 0x200 (temporary test button)."""
-        # Test program bytes: A206 6000 6100 D011 1208 80
+        # Test program bytes: A20A 6000 6100 D011 1208 80
         test_bytes = [
-            0xA2, 0x06,  # A206: Set I to 0x206
+            0xA2, 0x0A,  # A20A: Set I to 0x20A
             0x60, 0x00,  # 6000: Set V0 to 0x00
             0x61, 0x00,  # 6100: Set V1 to 0x00
             0xD0, 0x11,  # D011: Draw sprite at (V0, V1) height 1 from I

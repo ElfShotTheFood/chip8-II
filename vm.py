@@ -65,6 +65,7 @@ class CHIP8VM:
         n2 = (opcode >> 8) & 0xF   # X register index
         n3 = (opcode >> 4) & 0xF   # Y register index
         n4 = opcode & 0xF          # Low nibble (varies by opcode)
+        print(f"DEBUG: Decoded nibbles: n1=0x{n1:X}, n2=0x{n2:X}, n3=0x{n3:X}, n4=0x{n4:X} (opcode=0x{opcode:04X})")
 
         # Execute opcode based on group
         if n1 == 0x0:
@@ -75,19 +76,25 @@ class CHIP8VM:
                 # Return from subroutine
                 if not self.stack:
                     raise RuntimeError("Stack underflow on RET instruction")
-                self.PC = self.stack.pop()
+                ret_addr = self.stack.pop()
+                print(f"DEBUG: 00EE RET: Popped 0x{ret_addr:04X} from stack, setting PC to 0x{ret_addr:04X}")
+                self.PC = ret_addr
             # 0x0NNN: Machine code routine call (ignored in modern CHIP-8)
 
         elif n1 == 0x1:
             # 1NNN: Jump to address NNN
-            self.PC = opcode & 0xFFF
+            target = opcode & 0xFFF
+            print(f"DEBUG: 1NNN Jump: Setting PC to 0x{target:04X}")
+            self.PC = target
 
         elif n1 == 0x2:
             # 2NNN: Call subroutine at NNN
+            target = opcode & 0xFFF
+            print(f"DEBUG: 2NNN Call: Pushing current PC 0x{self.PC:04X} to stack, jumping to 0x{target:04X}")
             self.stack.append(self.PC)
             if len(self.stack) > 16:
                 raise RuntimeError("Stack overflow (max 16 levels)")
-            self.PC = opcode & 0xFFF
+            self.PC = target
 
         elif n1 == 0x3:
             # 3XNN: Skip next instruction if VX == NN
@@ -178,7 +185,10 @@ class CHIP8VM:
 
         elif n1 == 0xB:
             # BNNN: Jump to NNN + V0
-            self.PC = ((opcode & 0xFFF) + self.V[0]) & 0xFFF
+            nnn = opcode & 0xFFF
+            target = (nnn + self.V[0]) & 0xFFF
+            print(f"DEBUG: BNNN Jump with V0: NNN=0x{nnn:04X}, V0=0x{self.V[0]:02X}, setting PC to 0x{target:04X}")
+            self.PC = target
 
         elif n1 == 0xC:
             # CXNN: VX = random byte & NN
@@ -259,3 +269,7 @@ class CHIP8VM:
                 # FX65: Read V0 to VX from memory starting at I
                 for i in range(x + 1):
                     self.V[i] = memory.read(self.I + i) & 0xFF
+
+        # Debug: Print final PC after processing instruction
+        print(f"DEBUG: Finished processing instruction, final PC = 0x{self.PC:04X}")
+        print("-" * 50)  # Separator for readability
