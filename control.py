@@ -73,6 +73,14 @@ class ControlGUI:
         self.delay_entry.insert(0, "500")  # Default 500ms
         self.delay_entry.pack(side=tk.LEFT, padx=5)
 
+        # Status indicator
+        self.status_label = tk.Label(self.control_frame, text="Status:", padx=(20, 0))
+        self.status_label.pack(side=tk.LEFT)
+        self.status_value = tk.Label(
+            self.control_frame, text="STOPPED", fg="red", font=("Arial", 10, "bold")
+        )
+        self.status_value.pack(side=tk.LEFT, padx=(5, 0))
+
         # --- Memory Frame ---
         self.mem_frame = tk.LabelFrame(
             self.root, text="Memory (Even Addresses from 0x0200)", padx=10, pady=10
@@ -211,6 +219,7 @@ class ControlGUI:
         if not self.is_running:
             self.is_running = True
             self.set_memory_editable(False)
+            self.status_value.config(text="RUNNING", fg="green")
             self.run_step()
 
     def run_step(self):
@@ -237,6 +246,7 @@ class ControlGUI:
         """Stop the VM execution loop."""
         self.is_running = False
         self.set_memory_editable(True)
+        self.status_value.config(text="STOPPED", fg="red")
 
     def single_step(self):
         """Execute a single CHIP-8 instruction without delay."""
@@ -252,6 +262,7 @@ class ControlGUI:
         display.clear()  # Clear the CHIP-8 display
         self.set_memory_editable(True)
         self.refresh_memory()
+        self.status_value.config(text="STOPPED", fg="red")
 
     def set_memory_editable(self, editable):
         """Enable/disable memory entries based on VM running state."""
