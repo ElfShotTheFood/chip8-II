@@ -74,18 +74,18 @@ class ControlGUI:
 
         # Delay configuration
         self.delay_label = tk.Label(self.control_frame, text="Delay (ms):")
-        self.delay_label.pack(side=tk.LEFT, padx=(20, 5))
+        self.delay_label.pack(side=tk.LEFT, padx=20)
         self.delay_entry = tk.Entry(self.control_frame, width=10)
         self.delay_entry.insert(0, "500")  # Default 500ms
         self.delay_entry.pack(side=tk.LEFT, padx=5)
 
         # Status indicator
-        self.status_label = tk.Label(self.control_frame, text="Status:", padx=(20, 0))
-        self.status_label.pack(side=tk.LEFT)
+        self.status_label = tk.Label(self.control_frame, text="Status:")
+        self.status_label.pack(side=tk.LEFT, padx=20)
         self.status_value = tk.Label(
             self.control_frame, text="STOPPED", fg="red", font=("Arial", 10, "bold")
         )
-        self.status_value.pack(side=tk.LEFT, padx=(5, 0))
+        self.status_value.pack(side=tk.LEFT, padx=5)
 
         # --- Memory Frame ---
         self.mem_frame = tk.LabelFrame(
