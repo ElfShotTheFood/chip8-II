@@ -241,8 +241,8 @@ class Chip8Gui:
         if highlight:
             # Update text to bold black
             canvas.itemconfig(text_id, fill="black", font=("Courier", 10, "bold"))
-            # Update rectangle to light green with rounded corners
-            canvas.itemconfig(rect_id, fill="lightgreen", outline="lightgreen")
+            # Update rectangle to very light green with rounded corners
+            canvas.itemconfig(rect_id, fill="palegreen", outline="palegreen")
         else:
             # Remove highlight - restore normal text
             canvas.itemconfig(text_id, fill="black", font=("Courier", 10))
