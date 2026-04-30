@@ -46,13 +46,19 @@ class CHIP8VM:
         Raises:
             RuntimeError: If stack underflow/overflow occurs, or external methods are missing.
         """
+        # Debug: Print current instruction pointer (PC)
+        current_pc = self.PC
+        print(f"DEBUG: Instruction Pointer (PC) = 0x{current_pc:04X}")
+
         # Fetch 2-byte opcode from memory at current PC
         high_byte = memory.read(self.PC)
         low_byte = memory.read(self.PC + 1)
-
         opcode = (high_byte << 8) | low_byte
+        print(f"DEBUG: Fetched opcode 0x{opcode:04X} from 0x{current_pc:04X}-0x{current_pc+1:04X}")
+
         # Increment PC by 2 (all CHIP-8 instructions are 2 bytes)
         self.PC += 2
+        print(f"DEBUG: PC updated to 0x{self.PC:04X}")
 
         # Decode opcode nibbles
         n1 = (opcode >> 12) & 0xF  # Opcode group
@@ -110,6 +116,7 @@ class CHIP8VM:
             # 6XNN: Set VX to NN
             x = n2
             self.V[x] = opcode & 0xFF
+            print(f"DEBUG: Set V{x} to 0x{self.V[x]:02X} (decimal {self.V[x]})")
 
         elif n1 == 0x7:
             # 7XNN: Add NN to VX
@@ -167,6 +174,7 @@ class CHIP8VM:
         elif n1 == 0xA:
             # ANNN: Set I to NNN
             self.I = opcode & 0xFFF
+            print(f"DEBUG: Set I register to 0x{self.I:04X}")
 
         elif n1 == 0xB:
             # BNNN: Jump to NNN + V0
@@ -185,19 +193,25 @@ class CHIP8VM:
             n = n4
             vx = self.V[x]
             vy = self.V[y]
+            print(f"DEBUG: DXYN: Draw sprite at (V{x}={vx}, V{y}={vy}) height {n}, I=0x{self.I:04X}")
             collision = False
 
             for row in range(n):
-                sprite_byte = memory.read(self.I + row)
+                sprite_addr = self.I + row
+                sprite_byte = memory.read(sprite_addr)
+                print(f"DEBUG: DXYN: Sprite row {row} at 0x{sprite_addr:04X}: 0x{sprite_byte:02X} (binary {sprite_byte:08b})")
 
                 for bit in range(8):
                     if (sprite_byte >> (7 - bit)) & 1:
                         pixel_x = vx + bit
                         pixel_y = vy + row
+                        print(f"DEBUG: DXYN: Toggling pixel ({pixel_x}, {pixel_y})")
                         if display.xor_pixel(pixel_x, pixel_y):
                             collision = True
+                            print(f"DEBUG: DXYN: Collision detected at ({pixel_x}, {pixel_y})")
             # Set collision flag (VF) if any pixel was turned from on to off
             self.V[0xF] = 1 if collision else 0
+            print(f"DEBUG: DXYN: Done, collision flag VF=0x{self.V[0xF]:X}")
 
         elif n1 == 0xE:
             # EX9E: Skip if key VX pressed
