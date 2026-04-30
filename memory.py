@@ -40,11 +40,13 @@ _FONT_SPRITES = [
 def init():
     """Initialize memory and load font sprites into the interpreter area (0x000-0x04F)."""
     global _memory
+    print("DEBUG: memory.init() called - clearing memory and loading font sprites")
     # Clear memory
     _memory = [0] * MEMORY_SIZE
     # Load font sprites at the start of memory (0x000)
     for i, byte in enumerate(_FONT_SPRITES):
         _memory[i] = byte
+    print(f"DEBUG: memory.init() done - memory[0x200] = 0x{_memory[0x200]:02X}")
 
 
 def read(address):
@@ -61,7 +63,11 @@ def read(address):
     """
     if address < 0 or address >= MEMORY_SIZE:
         raise ValueError(f"Memory read out of range: 0x{address:03X}")
-    return _memory[address]
+    value = _memory[address]
+    # Only debug reads from 0x200-0x210 to avoid too much output
+    if 0x200 <= address <= 0x210:
+        print(f"DEBUG: memory.read(0x{address:04X}) = 0x{value:02X}")
+    return value
 
 
 def write(address, value):
@@ -79,6 +85,9 @@ def write(address, value):
     if value < 0 or value > 255:
         raise ValueError(f"Invalid byte value: {value}")
     _memory[address] = value
+    # Only debug writes to 0x200+ to avoid too much output
+    if address >= 0x200:
+        print(f"DEBUG: memory.write(0x{address:04X}, 0x{value:02X})")
 
 
 def load_rom(rom_data, start_address=0x200):
