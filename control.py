@@ -66,6 +66,12 @@ class ControlGUI:
         )
         self.reset_btn.pack(side=tk.LEFT, padx=5)
 
+        # TEST button (temporary)
+        self.test_btn = tk.Button(
+            self.control_frame, text="TEST", command=self.load_test_program, width=10
+        )
+        self.test_btn.pack(side=tk.LEFT, padx=5)
+
         # Delay configuration
         self.delay_label = tk.Label(self.control_frame, text="Delay (ms):")
         self.delay_label.pack(side=tk.LEFT, padx=(20, 5))
@@ -263,6 +269,32 @@ class ControlGUI:
         self.set_memory_editable(True)
         self.refresh_memory()
         self.status_value.config(text="STOPPED", fg="red")
+
+    def load_test_program(self):
+        """Load a test program into memory starting at 0x200 (temporary test button)."""
+        # Test program bytes: A206 6000 6100 D011 1208 80
+        test_bytes = [
+            0xA2, 0x06,  # A206: Set I to 0x206
+            0x60, 0x00,  # 6000: Set V0 to 0x00
+            0x61, 0x00,  # 6100: Set V1 to 0x00
+            0xD0, 0x11,  # D011: Draw sprite at (V0, V1) height 1 from I
+            0x12, 0x08,  # 1208: Jump to 0x208
+            0x80,        # 80: Single byte (pads to even address)
+        ]
+
+        # Stop VM if running
+        self.is_running = False
+        self.status_value.config(text="STOPPED", fg="red")
+
+        # Write bytes to memory starting at 0x200
+        for i, byte in enumerate(test_bytes):
+            memory.write(0x200 + i, byte)
+
+        # Refresh the memory display
+        self.refresh_memory()
+
+        # Reset VM to ensure PC is at 0x200
+        self.vm.reset()
 
     def set_memory_editable(self, editable):
         """Enable/disable memory entries based on VM running state."""
