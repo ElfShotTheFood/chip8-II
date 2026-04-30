@@ -49,7 +49,14 @@ class CHIP8VM:
         """
         # Debug: Print current instruction pointer (PC)
         current_pc = self.PC
+        print(f"\nDEBUG: execute_instruction() called")
         print(f"DEBUG: Instruction Pointer (PC) = 0x{current_pc:04X}")
+
+        # Debug: Dump memory at 0x200-0x20A to verify contents
+        print(f"DEBUG: Memory dump at 0x200-0x20A:")
+        for addr in range(0x200, 0x20B):
+            byte = memory.read(addr)
+            print(f"  memory[0x{addr:04X}] = 0x{byte:02X}")
 
         # Fetch 2-byte opcode from memory at current PC
         high_byte = memory.read(self.PC)

@@ -26,11 +26,15 @@ class ControlGUI:
         self.root.title("CHIP-8 VM Controller")
         self.root.geometry("800x600")
 
+        print("\nDEBUG: ControlGUI.__init__() called")
+        print("DEBUG: About to create VM instance (this will call memory.init())")
+
         # Initialize CHIP-8 display (64x32 chip-8 pixels, 10x10 device pixels each)
         display.init(64, 32)
 
-        # Initialize VM (calls reset() which initializes memory with font sprites)
+        # Initialize VM (calls memory.init() once in __init__)
         self.vm = vm.CHIP8VM()
+        print("DEBUG: VM instance created")
 
         # State variables
         self.is_running = False
@@ -286,9 +290,17 @@ class ControlGUI:
         self.is_running = False
         self.status_value.config(text="STOPPED", fg="red")
 
+        print(f"\nDEBUG: load_test_program() called")
+        print(f"DEBUG: Before writing test bytes:")
+        print(f"  memory[0x200] = 0x{memory.read(0x200):02X}")
+        print(f"  memory[0x201] = 0x{memory.read(0x201):02X}")
+
         # Write bytes to memory starting at 0x200
+        print(f"DEBUG: Writing test bytes to memory...")
         for i, byte in enumerate(test_bytes):
-            memory.write(0x200 + i, byte)
+            addr = 0x200 + i
+            memory.write(addr, byte)
+            print(f"  memory.write(0x{addr:04X}, 0x{byte:02X})")
 
         # Debug: Verify memory was written correctly
         print(f"DEBUG: load_test_program: After writing test bytes:")
@@ -299,7 +311,9 @@ class ControlGUI:
         self.refresh_memory()
 
         # Reset VM to ensure PC is at 0x200
+        print(f"DEBUG: About to call vm.reset()")
         self.vm.reset()
+        print(f"DEBUG: After vm.reset(), PC = 0x{self.vm.PC:04X}")
 
     def set_memory_editable(self, editable):
         """Enable/disable memory entries based on VM running state."""
