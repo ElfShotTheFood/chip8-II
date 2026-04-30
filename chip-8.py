@@ -117,21 +117,21 @@ class Chip8Gui:
         # PC register
         pc_frame = tk.Frame(left_col)
         pc_frame.pack(fill=tk.X, pady=2)
-        tk.Label(pc_frame, text="PC:", width=3, anchor="w").pack(side=tk.LEFT)
+        tk.Label(pc_frame, text="PC:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
         self.PC_label = tk.Label(pc_frame, text="0200", width=6, font=("Consolas", 10))
         self.PC_label.pack(side=tk.LEFT)
 
-        # SP register
+        # SP register (4-digit hex, aligned with PC and I)
         sp_frame = tk.Frame(left_col)
         sp_frame.pack(fill=tk.X, pady=2)
-        tk.Label(sp_frame, text="SP:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.SP_label = tk.Label(sp_frame, text="0", width=2, font=("Consolas", 10))
+        tk.Label(sp_frame, text="SP:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
+        self.SP_label = tk.Label(sp_frame, text="0000", width=6, font=("Consolas", 10))
         self.SP_label.pack(side=tk.LEFT)
 
         # I register
         i_frame = tk.Frame(left_col)
         i_frame.pack(fill=tk.X, pady=2)
-        tk.Label(i_frame, text="I:", width=3, anchor="w").pack(side=tk.LEFT)
+        tk.Label(i_frame, text="I:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
         self.I_label = tk.Label(i_frame, text="0000", width=6, font=("Consolas", 10))
         self.I_label.pack(side=tk.LEFT)
 
@@ -142,14 +142,14 @@ class Chip8Gui:
         # DT register
         dt_frame = tk.Frame(mid_col)
         dt_frame.pack(fill=tk.X, pady=2)
-        tk.Label(dt_frame, text="DT:", width=3, anchor="w").pack(side=tk.LEFT)
+        tk.Label(dt_frame, text="DT:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
         self.DT_label = tk.Label(dt_frame, text="00", width=4, font=("Consolas", 10))
         self.DT_label.pack(side=tk.LEFT)
 
         # ST register
         st_frame = tk.Frame(mid_col)
         st_frame.pack(fill=tk.X, pady=2)
-        tk.Label(st_frame, text="ST:", width=3, anchor="w").pack(side=tk.LEFT)
+        tk.Label(st_frame, text="ST:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
         self.ST_label = tk.Label(st_frame, text="00", width=4, font=("Consolas", 10))
         self.ST_label.pack(side=tk.LEFT)
 
@@ -173,8 +173,8 @@ class Chip8Gui:
             reg_frame = tk.Frame(right_section)
             reg_frame.grid(row=row, column=col, padx=10, pady=2, sticky="w")
             
-            # Register name label
-            name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w")
+            # Register name label (light blue)
+            name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w", fg="lightblue")
             name_label.pack(side=tk.LEFT)
             
             # Register value label (hex format)
@@ -310,13 +310,14 @@ class Chip8Gui:
         else:
             self.PC_label.config(text=f"{self.vm.PC:04X}", fg="black")
         
-        # Update SP (stack pointer = length of stack)
+        # Update SP (stack pointer = length of stack) - show as 4-digit hex
         sp = len(self.vm.stack)
+        sp_hex = f"{sp:04X}"
         if sp != self.prev_SP:
-            self.SP_label.config(text=f"{sp}", fg="red")
+            self.SP_label.config(text=sp_hex, fg="red")
             self.prev_SP = sp
         else:
-            self.SP_label.config(text=f"{sp}", fg="black")
+            self.SP_label.config(text=sp_hex, fg="black")
         
         # Update DT (Delay Timer)
         if self.vm.delay_timer != self.prev_DT:
