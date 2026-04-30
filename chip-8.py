@@ -27,7 +27,7 @@ class Chip8Gui:
         self.root.title("CHIP-8 VM Controller")
         self.root.geometry("800x750")  # Increased height for register display
 
-        print("\nDEBUG: ControlGUI.__init__() called")
+        print("\nDEBUG: Chip8Gui.__init__() called")
         print("DEBUG: About to create VM instance (this will call memory.init())")
 
         # Initialize CHIP-8 display (64x32 chip-8 pixels, 10x10 device pixels each)
@@ -40,8 +40,10 @@ class Chip8Gui:
         # State variables
         self.is_running = False
         self.memory_entries = {}  # Maps address -> Entry widget
+        self.addr_labels = {}  # Maps address -> (addr_canvas, addr_text_id, row_frame)
         self.current_original_value = None  # For ESC key revert
         self.current_entry_addr = None
+        self.highlighted_pc = None  # Track which address is currently highlighted
         
         # Previous register values for change detection
         self.prev_V = [0] * 16
@@ -190,9 +192,62 @@ class Chip8Gui:
         
         # Initial register display
         self.update_registers()
+        
+        # Highlight initial PC address
+        if self.vm.PC in self.addr_labels:
+            self.highlight_address(self.vm.PC, highlight=True)
+            self.highlighted_pc = self.vm.PC
 
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def create_rounded_rect(self, canvas, x1, y1, x2, y2, radius=8, **kwargs):
+        """Draw a rounded rectangle on a canvas.
+        
+        Args:
+            canvas: The tkinter Canvas to draw on
+            x1, y1: Top-left corner coordinates
+            x2, y2: Bottom-right corner coordinates
+            radius: Corner radius
+            **kwargs: Additional arguments for create_polygon (fill, outline, etc.)
+        
+        Returns:
+            The canvas item ID of the rounded rectangle
+        """
+        points = [
+            x1+radius, y1,
+            x2-radius, y1,
+            x2, y1, x2, y1+radius,
+            x2, y2-radius,
+            x2, y2, x2-radius, y2,
+            x1+radius, y2,
+            x1, y2, x1, y2-radius,
+            x1, y1+radius, x1, y1
+        ]
+        return canvas.create_polygon(points, **kwargs, smooth=True)
+
+    def highlight_address(self, addr, highlight=True):
+        """Highlight or unhighlight an address label in the memory display.
+        
+        Args:
+            addr: The memory address to highlight/unhighlight
+            highlight: True to add highlight, False to remove
+        """
+        if addr not in self.addr_labels:
+            return
+        
+        canvas, text_id, rect_id, _ = self.addr_labels[addr]
+        
+        if highlight:
+            # Update text to bold black
+            canvas.itemconfig(text_id, fill="black", font=("Courier", 10, "bold"))
+            # Update rectangle to green with rounded corners
+            canvas.itemconfig(rect_id, fill="green", outline="darkgreen")
+        else:
+            # Remove highlight - restore normal text
+            canvas.itemconfig(text_id, fill="black", font=("Courier", 10))
+            # Restore rectangle to no fill
+            canvas.itemconfig(rect_id, fill="SystemButtonFace", outline="SystemButtonFace")
 
     def update_registers(self):
         """Update the register display, showing changed values in red."""
@@ -216,9 +271,16 @@ class Chip8Gui:
         else:
             self.I_label.config(text=f"{self.vm.I:04X}", fg="black")
         
-        # Update PC
+        # Update PC and highlight in memory display
         if self.vm.PC != self.prev_PC:
             self.PC_label.config(text=f"{self.vm.PC:04X}", fg="red")
+            # Remove highlight from old PC
+            if self.highlighted_pc is not None and self.highlighted_pc in self.addr_labels:
+                self.highlight_address(self.highlighted_pc, highlight=False)
+            # Add highlight to new PC
+            if self.vm.PC in self.addr_labels:
+                self.highlight_address(self.vm.PC, highlight=True)
+                self.highlighted_pc = self.vm.PC
             self.prev_PC = self.vm.PC
         else:
             self.PC_label.config(text=f"{self.vm.PC:04X}", fg="black")
@@ -259,11 +321,26 @@ class Chip8Gui:
             row = tk.Frame(self.mem_inner_frame)
             row.pack(fill=tk.X, pady=2)
 
-            # Address label (hex format) - using fixed-pitch font
-            addr_label = tk.Label(
-                row, text=f"0x{addr:04X}", width=8, anchor=tk.W, font=("Courier", 10)
-            )
-            addr_label.pack(side=tk.LEFT, padx=(0, 10))
+            # Address label with green rounded rectangle highlight capability
+            # Use a Canvas to draw rounded rectangle with text
+            addr_frame = tk.Frame(row, bg="SystemButtonFace")
+            addr_frame.pack(side=tk.LEFT, padx=(0, 10))
+            
+            # Create a small canvas for the address label with rounded rectangle
+            addr_canvas = tk.Canvas(addr_frame, width=70, height=24, bg="SystemButtonFace", 
+                                     highlightthickness=0)
+            addr_canvas.pack()
+            
+            # Draw rounded rectangle (green when highlighted)
+            rect_id = self.create_rounded_rect(addr_canvas, 2, 2, 68, 22, radius=8,
+                                                  fill="SystemButtonFace", outline="SystemButtonFace", width=0)
+            
+            # Create text on top of rectangle
+            text_id = addr_canvas.create_text(35, 12, text=f"0x{addr:04X}", 
+                                              font=("Courier", 10), fill="black")
+            
+            # Store reference: (canvas, text_id, rect_id, addr_frame)
+            self.addr_labels[addr] = (addr_canvas, text_id, rect_id, addr_frame)
 
             # Value entry (4-digit hex) - using fixed-pitch font
             entry = tk.Entry(row, width=6, font=("Courier", 10))
