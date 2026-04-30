@@ -40,7 +40,7 @@ class Chip8Gui:
         # State variables
         self.is_running = False
         self.memory_entries = {}  # Maps address -> Entry widget
-        self.addr_labels = {}  # Maps address -> (addr_canvas, addr_text_id, row_frame)
+        self.addr_labels = {}  # Maps address -> (addr_canvas, addr_text_id, rect_id, addr_frame)
         self.current_original_value = None  # For ESC key revert
         self.current_entry_addr = None
         self.highlighted_pc = None  # Track which address is currently highlighted
@@ -123,8 +123,8 @@ class Chip8Gui:
             name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w")
             name_label.pack(side=tk.LEFT)
             
-            # Register value label (hex format)
-            value_label = tk.Label(reg_frame, text="00", width=4, font=("Courier", 10))
+            # Register value label (hex format) - using Consolas font
+            value_label = tk.Label(reg_frame, text="00", width=4, font=("Consolas", 10))
             value_label.pack(side=tk.LEFT)
             
             self.reg_labels[reg_name] = value_label
@@ -135,27 +135,27 @@ class Chip8Gui:
         
         # I register
         tk.Label(self.special_reg_frame, text="I:", width=2, anchor="w").pack(side=tk.LEFT)
-        self.I_label = tk.Label(self.special_reg_frame, text="0000", width=6, font=("Courier", 10))
+        self.I_label = tk.Label(self.special_reg_frame, text="0000", width=6, font=("Consolas", 10))
         self.I_label.pack(side=tk.LEFT, padx=(0, 15))
         
         # PC register
         tk.Label(self.special_reg_frame, text="PC:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.PC_label = tk.Label(self.special_reg_frame, text="0200", width=6, font=("Courier", 10))
+        self.PC_label = tk.Label(self.special_reg_frame, text="0200", width=6, font=("Consolas", 10))
         self.PC_label.pack(side=tk.LEFT, padx=(0, 15))
         
         # SP (Stack Pointer = len(stack))
         tk.Label(self.special_reg_frame, text="SP:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.SP_label = tk.Label(self.special_reg_frame, text="0", width=2, font=("Courier", 10))
+        self.SP_label = tk.Label(self.special_reg_frame, text="0", width=2, font=("Consolas", 10))
         self.SP_label.pack(side=tk.LEFT, padx=(0, 15))
         
         # DT (Delay Timer)
         tk.Label(self.special_reg_frame, text="DT:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.DT_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Courier", 10))
+        self.DT_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Consolas", 10))
         self.DT_label.pack(side=tk.LEFT, padx=(0, 15))
         
         # ST (Sound Timer)
         tk.Label(self.special_reg_frame, text="ST:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.ST_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Courier", 10))
+        self.ST_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Consolas", 10))
         self.ST_label.pack(side=tk.LEFT)
 
         # --- Memory Frame ---
@@ -240,12 +240,12 @@ class Chip8Gui:
         
         if highlight:
             # Update text to bold black
-            canvas.itemconfig(text_id, fill="black", font=("Courier", 10, "bold"))
+            canvas.itemconfig(text_id, fill="black", font=("Consolas", 10, "bold"))
             # Update rectangle to very light green with rounded corners
             canvas.itemconfig(rect_id, fill="palegreen", outline="palegreen")
         else:
             # Remove highlight - restore normal text
-            canvas.itemconfig(text_id, fill="black", font=("Courier", 10))
+            canvas.itemconfig(text_id, fill="black", font=("Consolas", 10))
             # Restore rectangle to no fill
             canvas.itemconfig(rect_id, fill="SystemButtonFace", outline="SystemButtonFace")
 
@@ -335,15 +335,15 @@ class Chip8Gui:
             rect_id = self.create_rounded_rect(addr_canvas, 2, 2, 68, 22, radius=8,
                                                   fill="SystemButtonFace", outline="SystemButtonFace", width=0)
             
-            # Create text on top of rectangle
+            # Create text on top of rectangle - using Consolas font
             text_id = addr_canvas.create_text(35, 12, text=f"0x{addr:04X}", 
-                                              font=("Courier", 10), fill="black")
+                                              font=("Consolas", 10), fill="black")
             
             # Store reference: (canvas, text_id, rect_id, addr_frame)
             self.addr_labels[addr] = (addr_canvas, text_id, rect_id, addr_frame)
 
-            # Value entry (4-digit hex) - using fixed-pitch font
-            entry = tk.Entry(row, width=6, font=("Courier", 10))
+            # Value entry (4-digit hex) - using Consolas font
+            entry = tk.Entry(row, width=6, font=("Consolas", 10))
             entry.insert(0, value_hex)
             entry.pack(side=tk.LEFT)
 
