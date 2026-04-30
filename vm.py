@@ -20,6 +20,8 @@ class CHIP8VM:
 
     def __init__(self):
         """Initialize the VM and reset to initial state."""
+        # Initialize memory (load font sprites) - only done once at creation
+        memory.init()
         self.reset()
 
     def reset(self):
@@ -36,8 +38,7 @@ class CHIP8VM:
         self.delay_timer = 0
         # 8-bit sound timer
         self.sound_timer = 0
-        # Initialize memory (load font sprites)
-        memory.init()
+        # Note: memory.init() is NOT called here to preserve loaded programs
 
     def execute_instruction(self):
         """

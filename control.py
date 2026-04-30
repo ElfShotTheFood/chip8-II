@@ -290,6 +290,11 @@ class ControlGUI:
         for i, byte in enumerate(test_bytes):
             memory.write(0x200 + i, byte)
 
+        # Debug: Verify memory was written correctly
+        print(f"DEBUG: load_test_program: After writing test bytes:")
+        print(f"  memory[0x200] = 0x{memory.read(0x200):02X} (expected 0xA2)")
+        print(f"  memory[0x201] = 0x{memory.read(0x201):02X} (expected 0x0A)")
+
         # Refresh the memory display
         self.refresh_memory()
 
