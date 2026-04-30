@@ -25,7 +25,7 @@ class Chip8Gui:
     def __init__(self, root):
         self.root = root
         self.root.title("CHIP-8 VM Controller")
-        self.root.geometry("800x750")  # Increased height for register display
+        self.root.geometry("900x750")  # Increased width for new register layout
 
         print("\nDEBUG: Chip8Gui.__init__() called")
         print("DEBUG: About to create VM instance (this will call memory.init())")
@@ -106,57 +106,82 @@ class Chip8Gui:
         self.reg_frame = tk.LabelFrame(self.root, text="Registers", padx=10, pady=10)
         self.reg_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        # Create grid for V0-VF (4 columns x 4 rows)
+        # Create a horizontal container for the three sections
+        reg_container = tk.Frame(self.reg_frame)
+        reg_container.pack(fill=tk.X, padx=5, pady=5)
+
+        # Left column: PC, SP, I (vertical stack)
+        left_col = tk.Frame(reg_container)
+        left_col.pack(side=tk.LEFT, padx=(0, 15), anchor="n")
+
+        # PC register
+        pc_frame = tk.Frame(left_col)
+        pc_frame.pack(fill=tk.X, pady=2)
+        tk.Label(pc_frame, text="PC:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.PC_label = tk.Label(pc_frame, text="0200", width=6, font=("Consolas", 10))
+        self.PC_label.pack(side=tk.LEFT)
+
+        # SP register
+        sp_frame = tk.Frame(left_col)
+        sp_frame.pack(fill=tk.X, pady=2)
+        tk.Label(sp_frame, text="SP:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.SP_label = tk.Label(sp_frame, text="0", width=2, font=("Consolas", 10))
+        self.SP_label.pack(side=tk.LEFT)
+
+        # I register
+        i_frame = tk.Frame(left_col)
+        i_frame.pack(fill=tk.X, pady=2)
+        tk.Label(i_frame, text="I:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.I_label = tk.Label(i_frame, text="0000", width=6, font=("Consolas", 10))
+        self.I_label.pack(side=tk.LEFT)
+
+        # Middle column: DT, ST (vertical stack)
+        mid_col = tk.Frame(reg_container)
+        mid_col.pack(side=tk.LEFT, padx=(0, 15), anchor="n")
+
+        # DT register
+        dt_frame = tk.Frame(mid_col)
+        dt_frame.pack(fill=tk.X, pady=2)
+        tk.Label(dt_frame, text="DT:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.DT_label = tk.Label(dt_frame, text="00", width=4, font=("Consolas", 10))
+        self.DT_label.pack(side=tk.LEFT)
+
+        # ST register
+        st_frame = tk.Frame(mid_col)
+        st_frame.pack(fill=tk.X, pady=2)
+        tk.Label(st_frame, text="ST:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.ST_label = tk.Label(st_frame, text="00", width=4, font=("Consolas", 10))
+        self.ST_label.pack(side=tk.LEFT)
+
+        # Right section: V0-VF in 4x4 grid (column-major order)
+        right_section = tk.Frame(reg_container)
+        right_section.pack(side=tk.LEFT, padx=(0, 0), anchor="n")
+
         self.reg_labels = {}  # Maps register name -> value_label
-        
-        # V0-VF registers (16 registers in 4x4 grid)
+
+        # V0-VF registers in 4x4 grid, column-major order
+        # Column 0: V0, V1, V2, V3 (top-down)
+        # Column 1: V4, V5, V6, V7
+        # Column 2: V8, V9, VA, VB
+        # Column 3: VC, VD, VE, VF
         for i in range(16):
-            row = i // 4
-            col = i % 4
+            col = i // 4  # Column number (0-3)
+            row = i % 4   # Row number (0-3)
             reg_name = f"V{i:X}"  # V0, V1, ..., VF
             
             # Create frame for each register
-            reg_frame = tk.Frame(self.reg_frame)
+            reg_frame = tk.Frame(right_section)
             reg_frame.grid(row=row, column=col, padx=10, pady=2, sticky="w")
             
             # Register name label
             name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w")
             name_label.pack(side=tk.LEFT)
             
-            # Register value label (hex format) - using Consolas font
+            # Register value label (hex format)
             value_label = tk.Label(reg_frame, text="00", width=4, font=("Consolas", 10))
             value_label.pack(side=tk.LEFT)
             
             self.reg_labels[reg_name] = value_label
-        
-        # I register, PC, SP, DT, ST (in a second row frame)
-        self.special_reg_frame = tk.Frame(self.reg_frame)
-        self.special_reg_frame.grid(row=4, column=0, columnspan=4, padx=10, pady=(10, 2), sticky="w")
-        
-        # I register
-        tk.Label(self.special_reg_frame, text="I:", width=2, anchor="w").pack(side=tk.LEFT)
-        self.I_label = tk.Label(self.special_reg_frame, text="0000", width=6, font=("Consolas", 10))
-        self.I_label.pack(side=tk.LEFT, padx=(0, 15))
-        
-        # PC register
-        tk.Label(self.special_reg_frame, text="PC:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.PC_label = tk.Label(self.special_reg_frame, text="0200", width=6, font=("Consolas", 10))
-        self.PC_label.pack(side=tk.LEFT, padx=(0, 15))
-        
-        # SP (Stack Pointer = len(stack))
-        tk.Label(self.special_reg_frame, text="SP:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.SP_label = tk.Label(self.special_reg_frame, text="0", width=2, font=("Consolas", 10))
-        self.SP_label.pack(side=tk.LEFT, padx=(0, 15))
-        
-        # DT (Delay Timer)
-        tk.Label(self.special_reg_frame, text="DT:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.DT_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Consolas", 10))
-        self.DT_label.pack(side=tk.LEFT, padx=(0, 15))
-        
-        # ST (Sound Timer)
-        tk.Label(self.special_reg_frame, text="ST:", width=3, anchor="w").pack(side=tk.LEFT)
-        self.ST_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Consolas", 10))
-        self.ST_label.pack(side=tk.LEFT)
 
         # --- Memory Frame ---
         self.mem_frame = tk.LabelFrame(
@@ -335,7 +360,7 @@ class Chip8Gui:
             rect_id = self.create_rounded_rect(addr_canvas, 2, 2, 68, 22, radius=8,
                                                   fill="SystemButtonFace", outline="SystemButtonFace", width=0)
             
-            # Create text on top of rectangle - using Consolas font
+            # Create text on top of rectangle
             text_id = addr_canvas.create_text(35, 12, text=f"0x{addr:04X}", 
                                               font=("Consolas", 10), fill="black")
             
