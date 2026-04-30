@@ -3,7 +3,8 @@ CHIP-8 VM Control Module
 
 Implements a tkinter-based dialog window to control the CHIP-8 VM, with:
 1. Control Section: RUN, STOP, SINGLE STEP, RESET buttons and delay configuration
-2. Memory Section: Scrollable display of even CHIP-8 memory addresses (starting at 0x200) with edit capability
+2. Registers Section: Display of V0-VF, I, PC, SP, DT, ST registers
+3. Memory Section: Scrollable display of even CHIP-8 memory addresses (starting at 0x200) with edit capability
 
 Requires:
 - tkinter (built-in)
@@ -24,7 +25,7 @@ class Chip8Gui:
     def __init__(self, root):
         self.root = root
         self.root.title("CHIP-8 VM Controller")
-        self.root.geometry("800x600")
+        self.root.geometry("800x750")  # Increased height for register display
 
         print("\nDEBUG: ControlGUI.__init__() called")
         print("DEBUG: About to create VM instance (this will call memory.init())")
@@ -41,6 +42,14 @@ class Chip8Gui:
         self.memory_entries = {}  # Maps address -> Entry widget
         self.current_original_value = None  # For ESC key revert
         self.current_entry_addr = None
+        
+        # Previous register values for change detection
+        self.prev_V = [0] * 16
+        self.prev_I = 0
+        self.prev_PC = 0x200
+        self.prev_SP = 0  # Stack pointer (len of stack)
+        self.prev_DT = 0
+        self.prev_ST = 0
 
         # --- Control Frame ---
         self.control_frame = tk.LabelFrame(self.root, text="Control", padx=10, pady=10)
@@ -91,6 +100,62 @@ class Chip8Gui:
         )
         self.status_value.pack(side=tk.LEFT, padx=5)
 
+        # --- Registers Frame ---
+        self.reg_frame = tk.LabelFrame(self.root, text="Registers", padx=10, pady=10)
+        self.reg_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        # Create grid for V0-VF (4 columns x 4 rows)
+        self.reg_labels = {}  # Maps register name -> value_label
+        
+        # V0-VF registers (16 registers in 4x4 grid)
+        for i in range(16):
+            row = i // 4
+            col = i % 4
+            reg_name = f"V{i:X}"  # V0, V1, ..., VF
+            
+            # Create frame for each register
+            reg_frame = tk.Frame(self.reg_frame)
+            reg_frame.grid(row=row, column=col, padx=10, pady=2, sticky="w")
+            
+            # Register name label
+            name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w")
+            name_label.pack(side=tk.LEFT)
+            
+            # Register value label (hex format)
+            value_label = tk.Label(reg_frame, text="00", width=4, font=("Courier", 10))
+            value_label.pack(side=tk.LEFT)
+            
+            self.reg_labels[reg_name] = value_label
+        
+        # I register, PC, SP, DT, ST (in a second row frame)
+        self.special_reg_frame = tk.Frame(self.reg_frame)
+        self.special_reg_frame.grid(row=4, column=0, columnspan=4, padx=10, pady=(10, 2), sticky="w")
+        
+        # I register
+        tk.Label(self.special_reg_frame, text="I:", width=2, anchor="w").pack(side=tk.LEFT)
+        self.I_label = tk.Label(self.special_reg_frame, text="0000", width=6, font=("Courier", 10))
+        self.I_label.pack(side=tk.LEFT, padx=(0, 15))
+        
+        # PC register
+        tk.Label(self.special_reg_frame, text="PC:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.PC_label = tk.Label(self.special_reg_frame, text="0200", width=6, font=("Courier", 10))
+        self.PC_label.pack(side=tk.LEFT, padx=(0, 15))
+        
+        # SP (Stack Pointer = len(stack))
+        tk.Label(self.special_reg_frame, text="SP:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.SP_label = tk.Label(self.special_reg_frame, text="0", width=2, font=("Courier", 10))
+        self.SP_label.pack(side=tk.LEFT, padx=(0, 15))
+        
+        # DT (Delay Timer)
+        tk.Label(self.special_reg_frame, text="DT:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.DT_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Courier", 10))
+        self.DT_label.pack(side=tk.LEFT, padx=(0, 15))
+        
+        # ST (Sound Timer)
+        tk.Label(self.special_reg_frame, text="ST:", width=3, anchor="w").pack(side=tk.LEFT)
+        self.ST_label = tk.Label(self.special_reg_frame, text="00", width=4, font=("Courier", 10))
+        self.ST_label.pack(side=tk.LEFT)
+
         # --- Memory Frame ---
         self.mem_frame = tk.LabelFrame(
             self.root, text="Memory (Even Addresses from 0x0200)", padx=10, pady=10
@@ -122,9 +187,63 @@ class Chip8Gui:
 
         # Start pygame event pumping to keep display responsive
         self.pump_pygame_events()
+        
+        # Initial register display
+        self.update_registers()
 
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def update_registers(self):
+        """Update the register display, showing changed values in red."""
+        # Update V0-VF
+        for i in range(16):
+            reg_name = f"V{i:X}"
+            new_val = self.vm.V[i]
+            value_label = self.reg_labels[reg_name]
+            
+            # Check if value changed
+            if new_val != self.prev_V[i]:
+                value_label.config(text=f"{new_val:02X}", fg="red")
+                self.prev_V[i] = new_val
+            else:
+                value_label.config(text=f"{new_val:02X}", fg="black")
+        
+        # Update I register
+        if self.vm.I != self.prev_I:
+            self.I_label.config(text=f"{self.vm.I:04X}", fg="red")
+            self.prev_I = self.vm.I
+        else:
+            self.I_label.config(text=f"{self.vm.I:04X}", fg="black")
+        
+        # Update PC
+        if self.vm.PC != self.prev_PC:
+            self.PC_label.config(text=f"{self.vm.PC:04X}", fg="red")
+            self.prev_PC = self.vm.PC
+        else:
+            self.PC_label.config(text=f"{self.vm.PC:04X}", fg="black")
+        
+        # Update SP (stack pointer = length of stack)
+        sp = len(self.vm.stack)
+        if sp != self.prev_SP:
+            self.SP_label.config(text=f"{sp}", fg="red")
+            self.prev_SP = sp
+        else:
+            self.SP_label.config(text=f"{sp}", fg="black")
+        
+        # Update DT (Delay Timer)
+        if self.vm.delay_timer != self.prev_DT:
+            self.DT_label.config(text=f"{self.vm.delay_timer:02X}", fg="red")
+            self.prev_DT = self.vm.delay_timer
+        else:
+            self.DT_label.config(text=f"{self.vm.delay_timer:02X}", fg="black")
+        
+        # Update ST (Sound Timer)
+        if self.vm.sound_timer != self.prev_ST:
+            self.ST_label.config(text=f"{self.vm.sound_timer:02X}", fg="red")
+            self.prev_ST = self.vm.sound_timer
+        else:
+            self.ST_label.config(text=f"{self.vm.sound_timer:02X}", fg="black")
 
     def populate_memory(self):
         """Populate the memory frame with rows for each even address starting at 0x200."""
@@ -140,14 +259,14 @@ class Chip8Gui:
             row = tk.Frame(self.mem_inner_frame)
             row.pack(fill=tk.X, pady=2)
 
-            # Address label (hex format)
+            # Address label (hex format) - using fixed-pitch font
             addr_label = tk.Label(
-                row, text=f"0x{addr:04X}", width=8, anchor=tk.W
+                row, text=f"0x{addr:04X}", width=8, anchor=tk.W, font=("Courier", 10)
             )
             addr_label.pack(side=tk.LEFT, padx=(0, 10))
 
-            # Value entry (4-digit hex)
-            entry = tk.Entry(row, width=6)
+            # Value entry (4-digit hex) - using fixed-pitch font
+            entry = tk.Entry(row, width=6, font=("Courier", 10))
             entry.insert(0, value_hex)
             entry.pack(side=tk.LEFT)
 
@@ -237,6 +356,7 @@ class Chip8Gui:
         if self.is_running:
             try:
                 self.vm.execute_instruction()
+                self.update_registers()
             except Exception as e:
                 messagebox.showerror("VM Execution Error", str(e))
                 self.stop_run()
@@ -262,6 +382,7 @@ class Chip8Gui:
         """Execute a single CHIP-8 instruction without delay."""
         try:
             self.vm.execute_instruction()
+            self.update_registers()
         except Exception as e:
             messagebox.showerror("VM Execution Error", str(e))
 
@@ -272,6 +393,7 @@ class Chip8Gui:
         display.clear()  # Clear the CHIP-8 display
         self.set_memory_editable(True)
         self.refresh_memory()
+        self.update_registers()
         self.status_value.config(text="STOPPED", fg="red")
 
     def load_test_program(self):
@@ -314,6 +436,9 @@ class Chip8Gui:
         print(f"DEBUG: About to call vm.reset()")
         self.vm.reset()
         print(f"DEBUG: After vm.reset(), PC = 0x{self.vm.PC:04X}")
+        
+        # Update register display
+        self.update_registers()
 
     def set_memory_editable(self, editable):
         """Enable/disable memory entries based on VM running state."""
