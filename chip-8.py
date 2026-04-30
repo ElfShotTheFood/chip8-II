@@ -18,7 +18,7 @@ import memory
 import display
 
 
-class ControlGUI:
+class Chip8Gui:
     """Main GUI class for the CHIP-8 VM controller."""
 
     def __init__(self, root):
@@ -343,5 +343,5 @@ class ControlGUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = ControlGUI(root)
+    app = Chip8Gui(root)
     root.mainloop()
