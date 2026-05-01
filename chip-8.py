@@ -117,21 +117,21 @@ class Chip8Gui:
         # PC register
         pc_frame = tk.Frame(left_col)
         pc_frame.pack(fill=tk.X, pady=2)
-        tk.Label(pc_frame, text="PC:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
+        self._create_reg_name_canvas(pc_frame, "PC", width=3)
         self.PC_label = tk.Label(pc_frame, text="0200", width=6, font=("Consolas", 10))
         self.PC_label.pack(side=tk.LEFT)
 
         # SP register (4-digit hex, aligned with PC and I)
         sp_frame = tk.Frame(left_col)
         sp_frame.pack(fill=tk.X, pady=2)
-        tk.Label(sp_frame, text="SP:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
+        self._create_reg_name_canvas(sp_frame, "SP", width=3)
         self.SP_label = tk.Label(sp_frame, text="0000", width=6, font=("Consolas", 10))
         self.SP_label.pack(side=tk.LEFT)
 
         # I register
         i_frame = tk.Frame(left_col)
         i_frame.pack(fill=tk.X, pady=2)
-        tk.Label(i_frame, text="I:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
+        self._create_reg_name_canvas(i_frame, "I", width=3)
         self.I_label = tk.Label(i_frame, text="0000", width=6, font=("Consolas", 10))
         self.I_label.pack(side=tk.LEFT)
 
@@ -142,14 +142,14 @@ class Chip8Gui:
         # DT register
         dt_frame = tk.Frame(mid_col)
         dt_frame.pack(fill=tk.X, pady=2)
-        tk.Label(dt_frame, text="DT:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
+        self._create_reg_name_canvas(dt_frame, "DT", width=3)
         self.DT_label = tk.Label(dt_frame, text="00", width=4, font=("Consolas", 10))
         self.DT_label.pack(side=tk.LEFT)
 
         # ST register
         st_frame = tk.Frame(mid_col)
         st_frame.pack(fill=tk.X, pady=2)
-        tk.Label(st_frame, text="ST:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
+        self._create_reg_name_canvas(st_frame, "ST", width=3)
         self.ST_label = tk.Label(st_frame, text="00", width=4, font=("Consolas", 10))
         self.ST_label.pack(side=tk.LEFT)
 
@@ -173,9 +173,8 @@ class Chip8Gui:
             reg_frame = tk.Frame(right_section)
             reg_frame.grid(row=row, column=col, padx=10, pady=2, sticky="w")
             
-            # Register name label (navy blue)
-            name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w", fg="navy")
-            name_label.pack(side=tk.LEFT)
+            # Register name with light blue rounded rectangle
+            self._create_reg_name_canvas(reg_frame, reg_name, width=3)
             
             # Register value label (hex format)
             value_label = tk.Label(reg_frame, text="00", width=4, font=("Consolas", 10))
@@ -225,6 +224,30 @@ class Chip8Gui:
 
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _create_reg_name_canvas(self, parent, text, width=3):
+        """Create a canvas with text on light blue rounded rectangle background.
+        
+        Args:
+            parent: Parent frame to pack the canvas into
+            text: Text to display (register name)
+            width: Width of the label in characters (for sizing)
+        """
+        # Calculate canvas width based on text length and width parameter
+        canvas_width = width * 12 + 10  # Approximate pixel width
+        canvas_height = 24
+        
+        canvas = tk.Canvas(parent, width=canvas_width, height=canvas_height, 
+                          bg="SystemButtonFace", highlightthickness=0)
+        canvas.pack(side=tk.LEFT)
+        
+        # Draw rounded rectangle with light blue background
+        rect_id = self.create_rounded_rect(canvas, 2, 2, canvas_width-2, canvas_height-2, 
+                                            radius=6, fill="lightblue", outline="lightblue", width=0)
+        
+        # Create text on top (black text)
+        text_id = canvas.create_text(canvas_width//2, canvas_height//2, 
+                                    text=text, font=("Consolas", 10), fill="black")
 
     def create_rounded_rect(self, canvas, x1, y1, x2, y2, radius=8, **kwargs):
         """Draw a rounded rectangle on a canvas.
