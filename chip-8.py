@@ -117,21 +117,21 @@ class Chip8Gui:
         # PC register
         pc_frame = tk.Frame(left_col)
         pc_frame.pack(fill=tk.X, pady=2)
-        tk.Label(pc_frame, text="PC:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
+        tk.Label(pc_frame, text="PC:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
         self.PC_label = tk.Label(pc_frame, text="0200", width=6, font=("Consolas", 10))
         self.PC_label.pack(side=tk.LEFT)
 
         # SP register (4-digit hex, aligned with PC and I)
         sp_frame = tk.Frame(left_col)
         sp_frame.pack(fill=tk.X, pady=2)
-        tk.Label(sp_frame, text="SP:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
+        tk.Label(sp_frame, text="SP:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
         self.SP_label = tk.Label(sp_frame, text="0000", width=6, font=("Consolas", 10))
         self.SP_label.pack(side=tk.LEFT)
 
         # I register
         i_frame = tk.Frame(left_col)
         i_frame.pack(fill=tk.X, pady=2)
-        tk.Label(i_frame, text="I:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
+        tk.Label(i_frame, text="I:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
         self.I_label = tk.Label(i_frame, text="0000", width=6, font=("Consolas", 10))
         self.I_label.pack(side=tk.LEFT)
 
@@ -142,14 +142,14 @@ class Chip8Gui:
         # DT register
         dt_frame = tk.Frame(mid_col)
         dt_frame.pack(fill=tk.X, pady=2)
-        tk.Label(dt_frame, text="DT:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
+        tk.Label(dt_frame, text="DT:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
         self.DT_label = tk.Label(dt_frame, text="00", width=4, font=("Consolas", 10))
         self.DT_label.pack(side=tk.LEFT)
 
         # ST register
         st_frame = tk.Frame(mid_col)
         st_frame.pack(fill=tk.X, pady=2)
-        tk.Label(st_frame, text="ST:", width=3, anchor="w", fg="lightblue").pack(side=tk.LEFT)
+        tk.Label(st_frame, text="ST:", width=3, anchor="w", fg="navy").pack(side=tk.LEFT)
         self.ST_label = tk.Label(st_frame, text="00", width=4, font=("Consolas", 10))
         self.ST_label.pack(side=tk.LEFT)
 
@@ -173,8 +173,8 @@ class Chip8Gui:
             reg_frame = tk.Frame(right_section)
             reg_frame.grid(row=row, column=col, padx=10, pady=2, sticky="w")
             
-            # Register name label (light blue)
-            name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w", fg="lightblue")
+            # Register name label (navy blue)
+            name_label = tk.Label(reg_frame, text=f"{reg_name}:", width=3, anchor="w", fg="navy")
             name_label.pack(side=tk.LEFT)
             
             # Register value label (hex format)
