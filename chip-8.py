@@ -59,31 +59,31 @@ class Chip8Gui:
 
         # RUN button
         self.run_btn = tk.Button(
-            self.control_frame, text="RUN", command=self.start_run, width=10
+            self.control_frame, text="RUN", command=lambda: self.blur_edit_then_run(), width=10
         )
         self.run_btn.pack(side=tk.LEFT, padx=5)
 
         # STOP button
         self.stop_btn = tk.Button(
-            self.control_frame, text="STOP", command=self.stop_run, width=10
+            self.control_frame, text="STOP", command=lambda: self.blur_edit_then_stop(), width=10
         )
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         # SINGLE STEP button
         self.step_btn = tk.Button(
-            self.control_frame, text="SINGLE STEP", command=self.single_step, width=15
+            self.control_frame, text="SINGLE STEP", command=lambda: self.blur_edit_then_step(), width=15
         )
         self.step_btn.pack(side=tk.LEFT, padx=5)
 
         # RESET button
         self.reset_btn = tk.Button(
-            self.control_frame, text="RESET", command=self.reset_vm, width=10
+            self.control_frame, text="RESET", command=lambda: self.blur_edit_then_reset(), width=10
         )
         self.reset_btn.pack(side=tk.LEFT, padx=5)
 
         # TEST button (temporary)
         self.test_btn = tk.Button(
-            self.control_frame, text="TEST", command=self.load_test_program, width=10
+            self.control_frame, text="TEST", command=lambda: self.blur_edit_then_test(), width=10
         )
         self.test_btn.pack(side=tk.LEFT, padx=5)
 
@@ -402,9 +402,27 @@ class Chip8Gui:
             # Hidden entry for editing
             entry = tk.Entry(row, width=6, font=("Consolas", 10),
                            highlightthickness=0, bd=1, takefocus=0,
-                           insertofftime=0, insertwidth=0, exportselection=0,
+                           insertofftime=0, insertwidth=2, exportselection=0,
                            bg="white", relief="sunken")
             entry.insert(0, value_hex)
+
+            def on_key_press(event, ent=entry):
+                """Handle key press for overwrite mode."""
+                # Only handle single character keys
+                if len(event.char) == 1 and event.char.isprintable():
+                    # Get current cursor position
+                    cursor_pos = ent.index(tk.INSERT)
+                    # Get current text
+                    current_text = ent.get()
+                    # If cursor is within text, replace character at cursor position
+                    if cursor_pos < len(current_text):
+                        # Build new text with character replaced
+                        new_text = current_text[:cursor_pos] + event.char + current_text[cursor_pos+1:]
+                        ent.delete(0, tk.END)
+                        ent.insert(0, new_text)
+                        # Move cursor forward
+                        ent.icursor(cursor_pos + 1)
+                        return "break"  # Prevent default insertion
             # Don't pack the entry - it will be shown/hidden dynamically
 
             def start_edit(event, lbl=value_display, ent=entry, a=addr):
@@ -412,10 +430,12 @@ class Chip8Gui:
                 lbl.pack_forget()
                 ent.pack(side=tk.LEFT)
                 ent.focus_set()
-                ent.select_range(0, tk.END)
+                ent.select_range(0, tk.END)  # Select all text for overwrite
+                ent.icursor(0)  # Place cursor at first character
 
-            def finish_edit(event, lbl=value_display, ent=entry, a=addr):
-                """Switch from entry to label after editing."""
+
+            def finish_edit_with_nav(event, lbl=value_display, ent=entry, a=addr, direction=1):
+                """Switch from entry to label after editing with navigation."""
                 text = ent.get().strip().upper()
                 if not text:
                     text = "0000"
@@ -450,7 +470,20 @@ class Chip8Gui:
 
                 # Update memory display
                 self.refresh_memory()
-                return "break"
+
+                # Navigate to next/previous address
+                next_addr = a + (2 * direction)
+                if 0x200 <= next_addr <= 0xFFE:
+                    if next_addr in self.memory_entries:
+                        # Switch to edit mode for next address
+                        next_widgets = self.memory_entries[next_addr]
+                        next_widgets["label"].pack_forget()
+                        next_widgets["entry"].pack(side=tk.LEFT)
+                        next_widgets["entry"].focus_set()
+                        next_widgets["entry"].select_range(0, tk.END)
+                        next_widgets["entry"].icursor(0)
+
+                return "break"  # Prevent default Tab behavior
 
             def cancel_edit(event, lbl=value_display, ent=entry, a=addr):
                 """Cancel editing and revert to original value."""
@@ -463,9 +496,11 @@ class Chip8Gui:
 
             # Bind events
             value_display.bind("<Button-1>", start_edit)
-            entry.bind("<Return>", finish_edit)
-            entry.bind("<Tab>", finish_edit)
+            entry.bind("<Return>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))  # Enter moves to next
+            entry.bind("<Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))  # Tab moves to next
+            entry.bind("<Shift-Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, -1))  # Shift+Tab moves to previous
             entry.bind("<Escape>", cancel_edit)
+            entry.bind("<KeyPress>", on_key_press)  # For overwrite mode
             # Also finish edit when focus is lost
             entry.bind("<FocusOut>", lambda e, lbl=value_display, ent=entry: (
                 ent.pack_forget(), lbl.pack(side=tk.LEFT)))
@@ -524,6 +559,32 @@ class Chip8Gui:
             entry.delete(0, tk.END)
             entry.insert(0, self.current_original_value)
         return "break"
+
+
+    def blur_edit_then_run(self):
+        """Remove focus from edit box then run."""
+        self.root.focus_set()  # Remove focus from any entry widget
+        self.start_run()
+
+    def blur_edit_then_stop(self):
+        """Remove focus from edit box then stop."""
+        self.root.focus_set()  # Remove focus from any entry widget
+        self.stop_run()
+
+    def blur_edit_then_step(self):
+        """Remove focus from edit box then single step."""
+        self.root.focus_set()  # Remove focus from any entry widget
+        self.single_step()
+
+    def blur_edit_then_reset(self):
+        """Remove focus from edit box then reset."""
+        self.root.focus_set()  # Remove focus from any entry widget
+        self.reset_vm()
+
+    def blur_edit_then_test(self):
+        """Remove focus from edit box then test."""
+        self.root.focus_set()  # Remove focus from any entry widget
+        self.load_test_program()
 
     def start_run(self):
         """Start the VM execution loop with configurable delay."""
@@ -632,7 +693,7 @@ class Chip8Gui:
                         lbl.pack_forget(),
                         ent.pack(side=tk.LEFT),
                         ent.focus_set(),
-                        ent.select_range(0, tk.END)
+                        ent.icursor(0)
                     ))
             else:
                 widgets["label"].unbind("<Button-1>")
