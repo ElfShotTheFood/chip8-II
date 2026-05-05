@@ -184,14 +184,16 @@ class Chip8Gui:
 
         # --- Memory Frame ---
         self.mem_frame = tk.LabelFrame(
-            self.root, text="Memory (Even Addresses from 0x0200)", padx=10, pady=10
+            self.root, text="Memory (Even Addresses from 0x0200)", padx=10, pady=10,
+            takefocus=0, highlightthickness=0
         )
         self.mem_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Scrollable canvas for memory rows
-        self.mem_canvas = tk.Canvas(self.mem_frame)
+        self.mem_canvas = tk.Canvas(self.mem_frame, highlightthickness=0)
         self.vscroll = tk.Scrollbar(
-            self.mem_frame, orient=tk.VERTICAL, command=self.mem_canvas.yview
+            self.mem_frame, orient=tk.VERTICAL, command=self.mem_canvas.yview,
+            takefocus=0
         )
         self.mem_canvas.configure(yscrollcommand=self.vscroll.set)
 
@@ -199,7 +201,7 @@ class Chip8Gui:
         self.mem_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Inner frame to hold memory address rows
-        self.mem_inner_frame = tk.Frame(self.mem_canvas)
+        self.mem_inner_frame = tk.Frame(self.mem_canvas, highlightthickness=0, bd=0)
         self.mem_canvas.create_window(
             (0, 0), window=self.mem_inner_frame, anchor=tk.NW
         )
@@ -367,12 +369,12 @@ class Chip8Gui:
             value_hex = f"{value:04X}"  # 4-digit hex string
 
             # Create row frame
-            row = tk.Frame(self.mem_inner_frame)
+            row = tk.Frame(self.mem_inner_frame, takefocus=0, highlightthickness=0, bd=0)
             row.pack(fill=tk.X, pady=2)
 
             # Address label with green rounded rectangle highlight capability
             # Use a Canvas to draw rounded rectangle with text
-            addr_frame = tk.Frame(row, bg="SystemButtonFace")
+            addr_frame = tk.Frame(row, bg="SystemButtonFace", highlightthickness=0, bd=0)
             addr_frame.pack(side=tk.LEFT, padx=(0, 10))
             
             # Create a small canvas for the address label with rounded rectangle
@@ -391,31 +393,85 @@ class Chip8Gui:
             # Store reference: (canvas, text_id, rect_id, addr_frame)
             self.addr_labels[addr] = (addr_canvas, text_id, rect_id, addr_frame)
 
-            # Value entry (4-digit hex) - using Consolas font
-            entry = tk.Entry(row, width=6, font=("Consolas", 10))
+            # Value display/entry (4-digit hex) - using Consolas font
+            # Use a Label that converts to Entry on click to avoid focus ring
+            value_display = tk.Label(row, text=value_hex, width=6, font=("Consolas", 10),
+                                    bg="white", relief="sunken", anchor="w")
+            value_display.pack(side=tk.LEFT)
+
+            # Hidden entry for editing
+            entry = tk.Entry(row, width=6, font=("Consolas", 10),
+                           highlightthickness=0, bd=1, takefocus=0,
+                           insertofftime=0, insertwidth=0, exportselection=0,
+                           bg="white", relief="sunken")
             entry.insert(0, value_hex)
-            entry.pack(side=tk.LEFT)
+            # Don't pack the entry - it will be shown/hidden dynamically
 
-            # Bind events for editing
-            entry.bind(
-                "<FocusIn>",
-                lambda e, a=addr, ent=entry: self.on_entry_focus_in(e, a, ent),
-            )
-            entry.bind(
-                "<Return>",
-                lambda e, a=addr, ent=entry: self.on_entry_save(e, a, ent),
-            )
-            entry.bind(
-                "<Tab>",
-                lambda e, a=addr, ent=entry: self.on_entry_save(e, a, ent),
-            )
-            entry.bind(
-                "<Escape>",
-                lambda e, a=addr, ent=entry: self.on_entry_escape(e, a, ent),
-            )
+            def start_edit(event, lbl=value_display, ent=entry, a=addr):
+                """Switch from label to entry for editing."""
+                lbl.pack_forget()
+                ent.pack(side=tk.LEFT)
+                ent.focus_set()
+                ent.select_range(0, tk.END)
 
-            # Store entry reference
-            self.memory_entries[addr] = entry
+            def finish_edit(event, lbl=value_display, ent=entry, a=addr):
+                """Switch from entry to label after editing."""
+                text = ent.get().strip().upper()
+                if not text:
+                    text = "0000"
+
+                # Validate hex input
+                try:
+                    value = int(text, 16)
+                except ValueError:
+                    messagebox.showerror("Invalid Input", f"'{text}' is not a valid hex value.")
+                    ent.delete(0, tk.END)
+                    ent.insert(0, lbl.cget("text"))
+                    return "break"
+
+                # Mask to 16 bits (2 bytes)
+                value &= 0xFFFF
+                high_byte = (value >> 8) & 0xFF
+                low_byte = value & 0xFF
+
+                # Write to memory
+                memory.write(a, high_byte)
+                memory.write(a + 1, low_byte)
+
+                # Update display
+                formatted = f"{value:04X}"
+                lbl.config(text=formatted)
+                ent.delete(0, tk.END)
+                ent.insert(0, formatted)
+
+                # Switch back to label
+                ent.pack_forget()
+                lbl.pack(side=tk.LEFT)
+
+                # Update memory display
+                self.refresh_memory()
+                return "break"
+
+            def cancel_edit(event, lbl=value_display, ent=entry, a=addr):
+                """Cancel editing and revert to original value."""
+                original = lbl.cget("text")
+                ent.delete(0, tk.END)
+                ent.insert(0, original)
+                ent.pack_forget()
+                lbl.pack(side=tk.LEFT)
+                return "break"
+
+            # Bind events
+            value_display.bind("<Button-1>", start_edit)
+            entry.bind("<Return>", finish_edit)
+            entry.bind("<Tab>", finish_edit)
+            entry.bind("<Escape>", cancel_edit)
+            # Also finish edit when focus is lost
+            entry.bind("<FocusOut>", lambda e, lbl=value_display, ent=entry: (
+                ent.pack_forget(), lbl.pack(side=tk.LEFT)))
+
+            # Store references
+            self.memory_entries[addr] = {"entry": entry, "label": value_display}
 
     def on_entry_focus_in(self, event, addr, entry):
         """Save original value when entry gains focus (for ESC revert)."""
@@ -569,17 +625,28 @@ class Chip8Gui:
     def set_memory_editable(self, editable):
         """Enable/disable memory entries based on VM running state."""
         state = tk.NORMAL if editable else tk.DISABLED
-        for entry in self.memory_entries.values():
-            entry.config(state=state)
+        for addr, widgets in self.memory_entries.items():
+            if editable:
+                widgets["label"].bind("<Button-1>", 
+                    lambda e, a=addr, lbl=widgets["label"], ent=widgets["entry"]: (
+                        lbl.pack_forget(),
+                        ent.pack(side=tk.LEFT),
+                        ent.focus_set(),
+                        ent.select_range(0, tk.END)
+                    ))
+            else:
+                widgets["label"].unbind("<Button-1>")
 
     def refresh_memory(self):
         """Refresh all memory entries to reflect current memory contents."""
-        for addr, entry in self.memory_entries.items():
+        for addr, widgets in self.memory_entries.items():
             high_byte = memory.read(addr)
             low_byte = memory.read(addr + 1)
             value = (high_byte << 8) | low_byte
-            entry.delete(0, tk.END)
-            entry.insert(0, f"{value:04X}")
+            formatted = f"{value:04X}"
+            widgets["label"].config(text=formatted)
+            widgets["entry"].delete(0, tk.END)
+            widgets["entry"].insert(0, formatted)
 
     def pump_pygame_events(self):
         """Periodically pump pygame events to keep the display responsive."""
