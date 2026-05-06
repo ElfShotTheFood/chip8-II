@@ -184,7 +184,7 @@ class Chip8Gui:
 
         # --- Memory Frame ---
         self.mem_frame = tk.LabelFrame(
-            self.root, text="Memory (Even Addresses from 0x0200)", padx=10, pady=10,
+            self.root, text="Memory", padx=10, pady=10,
             takefocus=0, highlightthickness=0
         )
         self.mem_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
