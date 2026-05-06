@@ -189,6 +189,10 @@ class Chip8Gui:
         )
         self.mem_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
+        # Button row frame (for future buttons)
+        self.mem_button_frame = tk.Frame(self.mem_frame, highlightthickness=0, bd=0)
+        self.mem_button_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(0, 5))
+
         # Scrollable canvas for memory rows
         self.mem_canvas = tk.Canvas(self.mem_frame, highlightthickness=0)
         self.vscroll = tk.Scrollbar(
