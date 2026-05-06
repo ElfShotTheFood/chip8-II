@@ -178,17 +178,23 @@ class Chip8Gui:
         self.mem_button_frame = tk.Frame(self.mem_frame, highlightthickness=0, bd=0)
         self.mem_button_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(0, 5))
 
-        # LOAD button - renamed from LOAD ROM
+        # LOAD button
         self.load_rom_btn = tk.Button(
             self.mem_button_frame, text="LOAD", command=self.load_rom_from_file, width=10
         )
         self.load_rom_btn.pack(side=tk.LEFT, padx=5)
 
-        # SAVE button - new
+        # SAVE button
         self.save_rom_btn = tk.Button(
             self.mem_button_frame, text="SAVE", command=self.save_memory_to_file, width=10
         )
         self.save_rom_btn.pack(side=tk.LEFT, padx=5)
+
+        # CLEAR button - new
+        self.clear_mem_btn = tk.Button(
+            self.mem_button_frame, text="CLEAR", command=self.clear_memory, width=10
+        )
+        self.clear_mem_btn.pack(side=tk.LEFT, padx=5)
 
         # Scrollable canvas for memory rows
         self.mem_canvas = tk.Canvas(self.mem_frame, highlightthickness=0)
@@ -491,8 +497,7 @@ class Chip8Gui:
             return
 
         try:
-            # Collect memory bytes from 0x200 to the end of loaded program
-            # We'll save from 0x200 to 0xFFF (all user ROM area)
+            # Collect memory bytes from 0x200 to 0xFFF
             memory_bytes = []
             for addr in range(0x200, 0x1000):
                 memory_bytes.append(memory.read(addr))
@@ -507,6 +512,40 @@ class Chip8Gui:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save memory: {str(e)}")
+
+    def clear_memory(self):
+        """Clear all user memory from 0x200 to 0xFFF by setting bytes to 0."""
+        if self.is_running:
+            self.stop_run()
+
+        # Confirm with user before clearing
+        confirm = messagebox.askyesno(
+            "Confirm Clear",
+            "Are you sure you want to clear all memory from 0x200 to 0xFFF?\nThis action cannot be undone.",
+            icon='warning'
+        )
+
+        if not confirm:
+            return
+
+        try:
+            # Write 0 to all bytes from 0x200 to 0xFFF
+            for addr in range(0x200, 0x1000):
+                memory.write(addr, 0x00)
+
+            print(f"\nDEBUG: clear_memory(): Cleared memory from 0x200 to 0xFFF")
+
+            # Reset VM to clear registers and refresh state
+            self.vm.reset()
+            
+            # Refresh displays
+            self.refresh_memory()
+            self.update_registers()
+
+            messagebox.showinfo("Memory Cleared", "Memory from 0x200 to 0xFFF has been cleared.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to clear memory: {str(e)}")
 
     def set_memory_editable(self, editable):
         """Enable/disable memory entries based on VM running state."""
