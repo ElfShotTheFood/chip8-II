@@ -81,12 +81,6 @@ class Chip8Gui:
         )
         self.reset_btn.pack(side=tk.LEFT, padx=5)
 
-        # TEST button (temporary)
-        self.test_btn = tk.Button(
-            self.control_frame, text="TEST", command=lambda: self.blur_edit_then_test(), width=10
-        )
-        self.test_btn.pack(side=tk.LEFT, padx=5)
-
         # Delay configuration
         self.delay_label = tk.Label(self.control_frame, text="Delay (ms):")
         self.delay_label.pack(side=tk.LEFT, padx=20)
@@ -193,6 +187,12 @@ class Chip8Gui:
         self.mem_button_frame = tk.Frame(self.mem_frame, highlightthickness=0, bd=0)
         self.mem_button_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(0, 5))
 
+        # TEST button - moved to Memory section
+        self.test_btn = tk.Button(
+            self.mem_button_frame, text="TEST", command=self.load_test_program, width=10
+        )
+        self.test_btn.pack(side=tk.LEFT, padx=5)
+
         # Scrollable canvas for memory rows
         self.mem_canvas = tk.Canvas(self.mem_frame, highlightthickness=0)
         self.vscroll = tk.Scrollbar(
@@ -206,6 +206,8 @@ class Chip8Gui:
 
         # Inner frame to hold memory address rows
         self.mem_inner_frame = tk.Frame(self.mem_canvas, highlightthickness=0, bd=0)
+        # Add top padding to create space for buttons that will be placed at the top of Memory section
+        self.mem_inner_frame.pack_configure(pady=(25, 0))
         self.mem_canvas.create_window(
             (0, 0), window=self.mem_inner_frame, anchor=tk.NW
         )
@@ -584,11 +586,6 @@ class Chip8Gui:
         """Remove focus from edit box then reset."""
         self.root.focus_set()  # Remove focus from any entry widget
         self.reset_vm()
-
-    def blur_edit_then_test(self):
-        """Remove focus from edit box then test."""
-        self.root.focus_set()  # Remove focus from any entry widget
-        self.load_test_program()
 
     def start_run(self):
         """Start the VM execution loop with configurable delay."""
