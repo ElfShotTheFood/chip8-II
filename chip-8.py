@@ -12,7 +12,7 @@ Requires:
 """
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 import pygame
 import vm
 import memory
@@ -25,31 +25,31 @@ class Chip8Gui:
     def __init__(self, root):
         self.root = root
         self.root.title("CHIP-8 VM Controller")
-        self.root.geometry("900x750")  # Increased width for new register layout
+        self.root.geometry("900x750")
 
         print("\nDEBUG: Chip8Gui.__init__() called")
         print("DEBUG: About to create VM instance (this will call memory.init())")
 
-        # Initialize CHIP-8 display (64x32 chip-8 pixels, 10x10 device pixels each)
+        # Initialize CHIP-8 display
         display.init(64, 32)
 
-        # Initialize VM (calls memory.init() once in __init__)
+        # Initialize VM
         self.vm = vm.CHIP8VM()
         print("DEBUG: VM instance created")
 
         # State variables
         self.is_running = False
-        self.memory_entries = {}  # Maps address -> Entry widget
-        self.addr_labels = {}  # Maps address -> (addr_canvas, addr_text_id, rect_id, addr_frame)
-        self.current_original_value = None  # For ESC key revert
+        self.memory_entries = {}
+        self.addr_labels = {}
+        self.current_original_value = None
         self.current_entry_addr = None
-        self.highlighted_pc = None  # Track which address is currently highlighted
+        self.highlighted_pc = None
         
         # Previous register values for change detection
         self.prev_V = [0] * 16
         self.prev_I = 0
         self.prev_PC = 0x200
-        self.prev_SP = 0  # Stack pointer (len of stack)
+        self.prev_SP = 0
         self.prev_DT = 0
         self.prev_ST = 0
 
@@ -85,7 +85,7 @@ class Chip8Gui:
         self.delay_label = tk.Label(self.control_frame, text="Delay (ms):")
         self.delay_label.pack(side=tk.LEFT, padx=20)
         self.delay_entry = tk.Entry(self.control_frame, width=10)
-        self.delay_entry.insert(0, "500")  # Default 500ms
+        self.delay_entry.insert(0, "500")
         self.delay_entry.pack(side=tk.LEFT, padx=5)
 
         # Status indicator
@@ -100,11 +100,10 @@ class Chip8Gui:
         self.reg_frame = tk.LabelFrame(self.root, text="Registers", padx=10, pady=10)
         self.reg_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        # Create a horizontal container for the three sections
         reg_container = tk.Frame(self.reg_frame)
         reg_container.pack(fill=tk.X, padx=5, pady=5)
 
-        # Left column: PC, SP, I (vertical stack)
+        # Left column: PC, SP, I
         left_col = tk.Frame(reg_container)
         left_col.pack(side=tk.LEFT, padx=(0, 15), anchor="n")
 
@@ -115,7 +114,7 @@ class Chip8Gui:
         self.PC_label = tk.Label(pc_frame, text="0200", width=6, font=("Consolas", 10))
         self.PC_label.pack(side=tk.LEFT)
 
-        # SP register (4-digit hex, aligned with PC and I)
+        # SP register
         sp_frame = tk.Frame(left_col)
         sp_frame.pack(fill=tk.X, pady=2)
         self._create_reg_name_canvas(sp_frame, "SP", width=3)
@@ -129,7 +128,7 @@ class Chip8Gui:
         self.I_label = tk.Label(i_frame, text="0000", width=6, font=("Consolas", 10))
         self.I_label.pack(side=tk.LEFT)
 
-        # Middle column: DT, ST (vertical stack)
+        # Middle column: DT, ST
         mid_col = tk.Frame(reg_container)
         mid_col.pack(side=tk.LEFT, padx=(0, 15), anchor="n")
 
@@ -147,30 +146,22 @@ class Chip8Gui:
         self.ST_label = tk.Label(st_frame, text="00", width=4, font=("Consolas", 10))
         self.ST_label.pack(side=tk.LEFT)
 
-        # Right section: V0-VF in 4x4 grid (column-major order)
+        # Right section: V0-VF in 4x4 grid
         right_section = tk.Frame(reg_container)
         right_section.pack(side=tk.LEFT, padx=(0, 0), anchor="n")
 
-        self.reg_labels = {}  # Maps register name -> value_label
+        self.reg_labels = {}
 
-        # V0-VF registers in 4x4 grid, column-major order
-        # Column 0: V0, V1, V2, V3 (top-down)
-        # Column 1: V4, V5, V6, V7
-        # Column 2: V8, V9, VA, VB
-        # Column 3: VC, VD, VE, VF
         for i in range(16):
-            col = i // 4  # Column number (0-3)
-            row = i % 4   # Row number (0-3)
-            reg_name = f"V{i:X}"  # V0, V1, ..., VF
+            col = i // 4
+            row = i % 4
+            reg_name = f"V{i:X}"
             
-            # Create frame for each register
             reg_frame = tk.Frame(right_section)
             reg_frame.grid(row=row, column=col, padx=10, pady=2, sticky="w")
             
-            # Register name with light blue rounded rectangle
             self._create_reg_name_canvas(reg_frame, reg_name, width=3)
             
-            # Register value label (hex format)
             value_label = tk.Label(reg_frame, text="00", width=4, font=("Consolas", 10))
             value_label.pack(side=tk.LEFT)
             
@@ -183,15 +174,21 @@ class Chip8Gui:
         )
         self.mem_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # Button row frame (for future buttons)
+        # Button row frame
         self.mem_button_frame = tk.Frame(self.mem_frame, highlightthickness=0, bd=0)
         self.mem_button_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(0, 5))
 
-        # TEST button - moved to Memory section
-        self.test_btn = tk.Button(
-            self.mem_button_frame, text="TEST", command=self.load_test_program, width=10
+        # LOAD button - renamed from LOAD ROM
+        self.load_rom_btn = tk.Button(
+            self.mem_button_frame, text="LOAD", command=self.load_rom_from_file, width=10
         )
-        self.test_btn.pack(side=tk.LEFT, padx=5)
+        self.load_rom_btn.pack(side=tk.LEFT, padx=5)
+
+        # SAVE button - new
+        self.save_rom_btn = tk.Button(
+            self.mem_button_frame, text="SAVE", command=self.save_memory_to_file, width=10
+        )
+        self.save_rom_btn.pack(side=tk.LEFT, padx=5)
 
         # Scrollable canvas for memory rows
         self.mem_canvas = tk.Canvas(self.mem_frame, highlightthickness=0)
@@ -206,7 +203,7 @@ class Chip8Gui:
 
         # Inner frame to hold memory address rows
         self.mem_inner_frame = tk.Frame(self.mem_canvas, highlightthickness=0, bd=0)
-        # Add top padding to create space for buttons that will be placed at the top of Memory section
+        # Padding to reserve space for button at top
         self.mem_inner_frame.pack_configure(pady=(25, 0))
         self.mem_canvas.create_window(
             (0, 0), window=self.mem_inner_frame, anchor=tk.NW
@@ -219,7 +216,7 @@ class Chip8Gui:
         self.mem_inner_frame.update_idletasks()
         self.mem_canvas.configure(scrollregion=self.mem_canvas.bbox("all"))
 
-        # Start pygame event pumping to keep display responsive
+        # Start pygame event pumping
         self.pump_pygame_events()
         
         # Initial register display
@@ -234,42 +231,22 @@ class Chip8Gui:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _create_reg_name_canvas(self, parent, text, width=3):
-        """Create a canvas with text on light blue rounded rectangle background.
-        
-        Args:
-            parent: Parent frame to pack the canvas into
-            text: Text to display (register name)
-            width: Width of the label in characters (for sizing)
-        """
-        # Calculate canvas width based on text length and width parameter
-        canvas_width = width * 12 + 10  # Approximate pixel width
+        """Create a canvas with text on light blue rounded rectangle background."""
+        canvas_width = width * 12 + 10
         canvas_height = 24
         
         canvas = tk.Canvas(parent, width=canvas_width, height=canvas_height, 
                           bg="SystemButtonFace", highlightthickness=0)
         canvas.pack(side=tk.LEFT)
         
-        # Draw rounded rectangle with light blue background
         rect_id = self.create_rounded_rect(canvas, 2, 2, canvas_width-2, canvas_height-2, 
                                             radius=6, fill="lightblue", outline="lightblue", width=0)
         
-        # Create text on top (black text)
         text_id = canvas.create_text(canvas_width//2, canvas_height//2, 
                                     text=text, font=("Consolas", 10), fill="black")
 
     def create_rounded_rect(self, canvas, x1, y1, x2, y2, radius=8, **kwargs):
-        """Draw a rounded rectangle on a canvas.
-        
-        Args:
-            canvas: The tkinter Canvas to draw on
-            x1, y1: Top-left corner coordinates
-            x2, y2: Bottom-right corner coordinates
-            radius: Corner radius
-            **kwargs: Additional arguments for create_polygon (fill, outline, etc.)
-        
-        Returns:
-            The canvas item ID of the rounded rectangle
-        """
+        """Draw a rounded rectangle on a canvas."""
         points = [
             x1+radius, y1,
             x2-radius, y1,
@@ -283,26 +260,17 @@ class Chip8Gui:
         return canvas.create_polygon(points, **kwargs, smooth=True)
 
     def highlight_address(self, addr, highlight=True):
-        """Highlight or unhighlight an address label in the memory display.
-        
-        Args:
-            addr: The memory address to highlight/unhighlight
-            highlight: True to add highlight, False to remove
-        """
+        """Highlight or unhighlight an address label in the memory display."""
         if addr not in self.addr_labels:
             return
         
         canvas, text_id, rect_id, _ = self.addr_labels[addr]
         
         if highlight:
-            # Update text to bold black
             canvas.itemconfig(text_id, fill="black", font=("Consolas", 10, "bold"))
-            # Update rectangle to very light green with rounded corners
             canvas.itemconfig(rect_id, fill="palegreen", outline="palegreen")
         else:
-            # Remove highlight - restore normal text
             canvas.itemconfig(text_id, fill="black", font=("Consolas", 10))
-            # Restore rectangle to no fill
             canvas.itemconfig(rect_id, fill="SystemButtonFace", outline="SystemButtonFace")
 
     def update_registers(self):
@@ -313,7 +281,6 @@ class Chip8Gui:
             new_val = self.vm.V[i]
             value_label = self.reg_labels[reg_name]
             
-            # Check if value changed
             if new_val != self.prev_V[i]:
                 value_label.config(text=f"{new_val:02X}", fg="red")
                 self.prev_V[i] = new_val
@@ -327,13 +294,11 @@ class Chip8Gui:
         else:
             self.I_label.config(text=f"{self.vm.I:04X}", fg="black")
         
-        # Update PC and highlight in memory display
+        # Update PC and highlight
         if self.vm.PC != self.prev_PC:
             self.PC_label.config(text=f"{self.vm.PC:04X}", fg="red")
-            # Remove highlight from old PC
             if self.highlighted_pc is not None and self.highlighted_pc in self.addr_labels:
                 self.highlight_address(self.highlighted_pc, highlight=False)
-            # Add highlight to new PC
             if self.vm.PC in self.addr_labels:
                 self.highlight_address(self.vm.PC, highlight=True)
                 self.highlighted_pc = self.vm.PC
@@ -341,7 +306,7 @@ class Chip8Gui:
         else:
             self.PC_label.config(text=f"{self.vm.PC:04X}", fg="black")
         
-        # Update SP (stack pointer = length of stack) - show as 4-digit hex
+        # Update SP
         sp = len(self.vm.stack)
         sp_hex = f"{sp:04X}"
         if sp != self.prev_SP:
@@ -350,14 +315,14 @@ class Chip8Gui:
         else:
             self.SP_label.config(text=sp_hex, fg="black")
         
-        # Update DT (Delay Timer)
+        # Update DT
         if self.vm.delay_timer != self.prev_DT:
             self.DT_label.config(text=f"{self.vm.delay_timer:02X}", fg="red")
             self.prev_DT = self.vm.delay_timer
         else:
             self.DT_label.config(text=f"{self.vm.delay_timer:02X}", fg="black")
         
-        # Update ST (Sound Timer)
+        # Update ST
         if self.vm.sound_timer != self.prev_ST:
             self.ST_label.config(text=f"{self.vm.sound_timer:02X}", fg="red")
             self.prev_ST = self.vm.sound_timer
@@ -366,46 +331,34 @@ class Chip8Gui:
 
     def populate_memory(self):
         """Populate the memory frame with rows for each even address starting at 0x200."""
-        # Even addresses from 0x200 to 0xFFE (inclusive)
         for addr in range(0x200, 0x1000, 2):
-            # Read 2-byte value from memory (high byte at addr, low byte at addr+1)
             high_byte = memory.read(addr)
             low_byte = memory.read(addr + 1)
             value = (high_byte << 8) | low_byte
-            value_hex = f"{value:04X}"  # 4-digit hex string
+            value_hex = f"{value:04X}"
 
-            # Create row frame
             row = tk.Frame(self.mem_inner_frame, takefocus=0, highlightthickness=0, bd=0)
             row.pack(fill=tk.X, pady=2)
 
-            # Address label with green rounded rectangle highlight capability
-            # Use a Canvas to draw rounded rectangle with text
             addr_frame = tk.Frame(row, bg="SystemButtonFace", highlightthickness=0, bd=0)
             addr_frame.pack(side=tk.LEFT, padx=(0, 10))
             
-            # Create a small canvas for the address label with rounded rectangle
             addr_canvas = tk.Canvas(addr_frame, width=70, height=24, bg="SystemButtonFace", 
                                      highlightthickness=0)
             addr_canvas.pack()
             
-            # Draw rounded rectangle (green when highlighted)
             rect_id = self.create_rounded_rect(addr_canvas, 2, 2, 68, 22, radius=8,
                                                   fill="SystemButtonFace", outline="SystemButtonFace", width=0)
             
-            # Create text on top of rectangle
             text_id = addr_canvas.create_text(35, 12, text=f"0x{addr:04X}", 
                                               font=("Consolas", 10), fill="black")
             
-            # Store reference: (canvas, text_id, rect_id, addr_frame)
             self.addr_labels[addr] = (addr_canvas, text_id, rect_id, addr_frame)
 
-            # Value display/entry (4-digit hex) - using Consolas font
-            # Use a Label that converts to Entry on click to avoid focus ring
             value_display = tk.Label(row, text=value_hex, width=6, font=("Consolas", 10),
                                     bg="white", relief="sunken", anchor="w")
             value_display.pack(side=tk.LEFT)
 
-            # Hidden entry for editing
             entry = tk.Entry(row, width=6, font=("Consolas", 10),
                            highlightthickness=0, bd=1, takefocus=0,
                            insertofftime=0, insertwidth=2, exportselection=0,
@@ -413,40 +366,28 @@ class Chip8Gui:
             entry.insert(0, value_hex)
 
             def on_key_press(event, ent=entry):
-                """Handle key press for overwrite mode."""
-                # Only handle single character keys
                 if len(event.char) == 1 and event.char.isprintable():
-                    # Get current cursor position
                     cursor_pos = ent.index(tk.INSERT)
-                    # Get current text
                     current_text = ent.get()
-                    # If cursor is within text, replace character at cursor position
                     if cursor_pos < len(current_text):
-                        # Build new text with character replaced
                         new_text = current_text[:cursor_pos] + event.char + current_text[cursor_pos+1:]
                         ent.delete(0, tk.END)
                         ent.insert(0, new_text)
-                        # Move cursor forward
                         ent.icursor(cursor_pos + 1)
-                        return "break"  # Prevent default insertion
-            # Don't pack the entry - it will be shown/hidden dynamically
+                        return "break"
 
             def start_edit(event, lbl=value_display, ent=entry, a=addr):
-                """Switch from label to entry for editing."""
                 lbl.pack_forget()
                 ent.pack(side=tk.LEFT)
                 ent.focus_set()
-                ent.select_range(0, tk.END)  # Select all text for overwrite
-                ent.icursor(0)  # Place cursor at first character
-
+                ent.select_range(0, tk.END)
+                ent.icursor(0)
 
             def finish_edit_with_nav(event, lbl=value_display, ent=entry, a=addr, direction=1):
-                """Switch from entry to label after editing with navigation."""
                 text = ent.get().strip().upper()
                 if not text:
                     text = "0000"
 
-                # Validate hex input
                 try:
                     value = int(text, 16)
                 except ValueError:
@@ -455,33 +396,26 @@ class Chip8Gui:
                     ent.insert(0, lbl.cget("text"))
                     return "break"
 
-                # Mask to 16 bits (2 bytes)
                 value &= 0xFFFF
                 high_byte = (value >> 8) & 0xFF
                 low_byte = value & 0xFF
 
-                # Write to memory
                 memory.write(a, high_byte)
                 memory.write(a + 1, low_byte)
 
-                # Update display
                 formatted = f"{value:04X}"
                 lbl.config(text=formatted)
                 ent.delete(0, tk.END)
                 ent.insert(0, formatted)
 
-                # Switch back to label
                 ent.pack_forget()
                 lbl.pack(side=tk.LEFT)
 
-                # Update memory display
                 self.refresh_memory()
 
-                # Navigate to next/previous address
                 next_addr = a + (2 * direction)
                 if 0x200 <= next_addr <= 0xFFE:
                     if next_addr in self.memory_entries:
-                        # Switch to edit mode for next address
                         next_widgets = self.memory_entries[next_addr]
                         next_widgets["label"].pack_forget()
                         next_widgets["entry"].pack(side=tk.LEFT)
@@ -489,10 +423,9 @@ class Chip8Gui:
                         next_widgets["entry"].select_range(0, tk.END)
                         next_widgets["entry"].icursor(0)
 
-                return "break"  # Prevent default Tab behavior
+                return "break"
 
             def cancel_edit(event, lbl=value_display, ent=entry, a=addr):
-                """Cancel editing and revert to original value."""
                 original = lbl.cget("text")
                 ent.delete(0, tk.END)
                 ent.insert(0, original)
@@ -500,193 +433,83 @@ class Chip8Gui:
                 lbl.pack(side=tk.LEFT)
                 return "break"
 
-            # Bind events
             value_display.bind("<Button-1>", start_edit)
-            entry.bind("<Return>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))  # Enter moves to next
-            entry.bind("<Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))  # Tab moves to next
-            entry.bind("<Shift-Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, -1))  # Shift+Tab moves to previous
+            entry.bind("<Return>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))
+            entry.bind("<Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))
+            entry.bind("<Shift-Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, -1))
             entry.bind("<Escape>", cancel_edit)
-            entry.bind("<KeyPress>", on_key_press)  # For overwrite mode
-            # Also finish edit when focus is lost
+            entry.bind("<KeyPress>", on_key_press)
             entry.bind("<FocusOut>", lambda e, lbl=value_display, ent=entry: (
                 ent.pack_forget(), lbl.pack(side=tk.LEFT)))
 
-            # Store references
             self.memory_entries[addr] = {"entry": entry, "label": value_display}
 
-    def on_entry_focus_in(self, event, addr, entry):
-        """Save original value when entry gains focus (for ESC revert)."""
-        self.current_original_value = entry.get()
-        self.current_entry_addr = addr
-
-    def on_entry_save(self, event, addr, entry):
-        """Save entry value to memory and move focus to next address."""
-        text = entry.get().strip().upper()
-        if not text:
-            text = "0000"
-
-        # Validate hex input
-        try:
-            value = int(text, 16)
-        except ValueError:
-            messagebox.showerror("Invalid Input", f"'{text}' is not a valid hex value.")
-            entry.delete(0, tk.END)
-            entry.insert(0, self.current_original_value)
-            return "break"
-
-        # Mask to 16 bits (2 bytes)
-        value &= 0xFFFF
-        high_byte = (value >> 8) & 0xFF
-        low_byte = value & 0xFF
-
-        # Write to memory
-        memory.write(addr, high_byte)
-        memory.write(addr + 1, low_byte)
-
-        # Update entry to formatted value
-        entry.delete(0, tk.END)
-        entry.insert(0, f"{value:04X}")
-
-        # Move focus to next even address
-        next_addr = addr + 2
-        if next_addr <= 0xFFE:
-            if next_addr in self.memory_entries:
-                self.memory_entries[next_addr].focus_set()
-        else:
-            # Wrap to first address if at end
-            if 0x200 in self.memory_entries:
-                self.memory_entries[0x200].focus_set()
-
-        return "break"  # Prevent default Tab behavior
-
-    def on_entry_escape(self, event, addr, entry):
-        """Revert entry to original value and preserve focus."""
-        if self.current_original_value is not None:
-            entry.delete(0, tk.END)
-            entry.insert(0, self.current_original_value)
-        return "break"
-
-
-    def blur_edit_then_run(self):
-        """Remove focus from edit box then run."""
-        self.root.focus_set()  # Remove focus from any entry widget
-        self.start_run()
-
-    def blur_edit_then_stop(self):
-        """Remove focus from edit box then stop."""
-        self.root.focus_set()  # Remove focus from any entry widget
-        self.stop_run()
-
-    def blur_edit_then_step(self):
-        """Remove focus from edit box then single step."""
-        self.root.focus_set()  # Remove focus from any entry widget
-        self.single_step()
-
-    def blur_edit_then_reset(self):
-        """Remove focus from edit box then reset."""
-        self.root.focus_set()  # Remove focus from any entry widget
-        self.reset_vm()
-
-    def start_run(self):
-        """Start the VM execution loop with configurable delay."""
-        if not self.is_running:
-            self.is_running = True
-            self.set_memory_editable(False)
-            self.status_value.config(text="RUNNING", fg="green")
-            self.run_step()
-
-    def run_step(self):
-        """Execute a single instruction and schedule the next if still running."""
+    def load_rom_from_file(self):
+        """Open file dialog to select a ROM file and load it into memory at 0x200."""
         if self.is_running:
-            try:
-                self.vm.execute_instruction()
-                self.update_registers()
-            except Exception as e:
-                messagebox.showerror("VM Execution Error", str(e))
-                self.stop_run()
-                return
+            self.stop_run()
 
-            # Get delay from entry (default to 500ms if invalid)
-            try:
-                delay = int(self.delay_entry.get())
-                delay = max(0, delay)  # Ensure non-negative
-            except ValueError:
-                delay = 500
+        file_path = filedialog.askopenfilename(
+            title="Select CHIP-8 ROM File",
+            filetypes=[("Binary files", "*.bin *.rom *.ch8"), ("All files", "*.*")]
+        )
 
-            # Schedule next instruction
-            self.root.after(delay, self.run_step)
+        if not file_path:
+            return
 
-    def stop_run(self):
-        """Stop the VM execution loop."""
-        self.is_running = False
-        self.set_memory_editable(True)
-        self.status_value.config(text="STOPPED", fg="red")
-
-    def single_step(self):
-        """Execute a single CHIP-8 instruction without delay."""
         try:
-            self.vm.execute_instruction()
+            with open(file_path, 'rb') as f:
+                rom_data = f.read()
+
+            memory.load_rom(rom_data, start_address=0x200)
+
+            print(f"\nDEBUG: load_rom_from_file(): Loaded {len(rom_data)} bytes from {file_path}")
+            print(f"DEBUG: First bytes: {' '.join(f'{b:02X}' for b in rom_data[:10])}")
+
+            self.vm.reset()
+            
+            self.refresh_memory()
             self.update_registers()
+
+            messagebox.showinfo("ROM Loaded", f"Loaded {len(rom_data)} bytes from {file_path}")
+
         except Exception as e:
-            messagebox.showerror("VM Execution Error", str(e))
+            messagebox.showerror("Error", f"Failed to load ROM: {str(e)}")
 
-    def reset_vm(self):
-        """Stop execution, reset VM registers, and refresh memory display."""
-        self.is_running = False
-        self.vm.reset()  # Resets registers, PC, stack, and re-initializes memory
-        display.clear()  # Clear the CHIP-8 display
-        self.set_memory_editable(True)
-        self.refresh_memory()
-        self.update_registers()
-        self.status_value.config(text="STOPPED", fg="red")
+    def save_memory_to_file(self):
+        """Open file dialog to save current emulator memory to a binary file."""
+        if self.is_running:
+            self.stop_run()
 
-    def load_test_program(self):
-        """Load a test program into memory starting at 0x200 (temporary test button)."""
-        # Test program bytes: A20A 6000 6100 D011 1208 80
-        test_bytes = [
-            0xA2, 0x0A,  # A20A: Set I to 0x20A
-            0x60, 0x00,  # 6000: Set V0 to 0x00
-            0x61, 0x00,  # 6100: Set V1 to 0x00
-            0xD0, 0x11,  # D011: Draw sprite at (V0, V1) height 1 from I
-            0x12, 0x08,  # 1208: Jump to 0x208
-            0x80,        # 80: Single byte (pads to even address)
-        ]
+        file_path = filedialog.asksaveasfilename(
+            title="Save Memory to Binary File",
+            filetypes=[("Binary files", "*.bin *.rom *.ch8"), ("All files", "*.*")],
+            defaultextension=".bin"
+        )
 
-        # Stop VM if running
-        self.is_running = False
-        self.status_value.config(text="STOPPED", fg="red")
+        if not file_path:
+            return
 
-        print(f"\nDEBUG: load_test_program() called")
-        print(f"DEBUG: Before writing test bytes:")
-        print(f"  memory[0x200] = 0x{memory.read(0x200):02X}")
-        print(f"  memory[0x201] = 0x{memory.read(0x201):02X}")
+        try:
+            # Collect memory bytes from 0x200 to the end of loaded program
+            # We'll save from 0x200 to 0xFFF (all user ROM area)
+            memory_bytes = []
+            for addr in range(0x200, 0x1000):
+                memory_bytes.append(memory.read(addr))
 
-        # Write bytes to memory starting at 0x200
-        print(f"DEBUG: Writing test bytes to memory...")
-        for i, byte in enumerate(test_bytes):
-            addr = 0x200 + i
-            memory.write(addr, byte)
-            print(f"  memory.write(0x{addr:04X}, 0x{byte:02X})")
+            with open(file_path, 'wb') as f:
+                f.write(bytes(memory_bytes))
 
-        # Debug: Verify memory was written correctly
-        print(f"DEBUG: load_test_program: After writing test bytes:")
-        print(f"  memory[0x200] = 0x{memory.read(0x200):02X} (expected 0xA2)")
-        print(f"  memory[0x201] = 0x{memory.read(0x201):02X} (expected 0x0A)")
+            print(f"\nDEBUG: save_memory_to_file(): Saved {len(memory_bytes)} bytes to {file_path}")
+            print(f"DEBUG: First bytes: {' '.join(f'{b:02X}' for b in memory_bytes[:10])}")
 
-        # Refresh the memory display
-        self.refresh_memory()
+            messagebox.showinfo("Memory Saved", f"Saved {len(memory_bytes)} bytes to {file_path}")
 
-        # Reset VM to ensure PC is at 0x200
-        print(f"DEBUG: About to call vm.reset()")
-        self.vm.reset()
-        print(f"DEBUG: After vm.reset(), PC = 0x{self.vm.PC:04X}")
-        
-        # Update register display
-        self.update_registers()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save memory: {str(e)}")
 
     def set_memory_editable(self, editable):
         """Enable/disable memory entries based on VM running state."""
-        state = tk.NORMAL if editable else tk.DISABLED
         for addr, widgets in self.memory_entries.items():
             if editable:
                 widgets["label"].bind("<Button-1>", 
@@ -719,6 +542,69 @@ class Chip8Gui:
         """Cleanup pygame and close the application."""
         pygame.quit()
         self.root.destroy()
+
+    # Control button handlers
+    def blur_edit_then_run(self):
+        self.root.focus_set()
+        self.start_run()
+
+    def blur_edit_then_stop(self):
+        self.root.focus_set()
+        self.stop_run()
+
+    def blur_edit_then_step(self):
+        self.root.focus_set()
+        self.single_step()
+
+    def blur_edit_then_reset(self):
+        self.root.focus_set()
+        self.reset_vm()
+
+    def start_run(self):
+        if not self.is_running:
+            self.is_running = True
+            self.set_memory_editable(False)
+            self.status_value.config(text="RUNNING", fg="green")
+            self.run_step()
+
+    def run_step(self):
+        if self.is_running:
+            try:
+                self.vm.execute_instruction()
+                self.update_registers()
+            except Exception as e:
+                messagebox.showerror("VM Execution Error", str(e))
+                self.stop_run()
+                return
+
+            try:
+                delay = int(self.delay_entry.get())
+                delay = max(0, delay)
+            except ValueError:
+                delay = 500
+
+            self.root.after(delay, self.run_step)
+
+    def stop_run(self):
+        self.is_running = False
+        self.set_memory_editable(True)
+        self.status_value.config(text="STOPPED", fg="red")
+
+    def single_step(self):
+        try:
+            self.vm.execute_instruction()
+            self.update_registers()
+        except Exception as e:
+            messagebox.showerror("VM Execution Error", str(e))
+
+    def reset_vm(self):
+        self.is_running = False
+        self.vm.reset()
+        display.clear()
+        self.set_memory_editable(True)
+        self.refresh_memory()
+        self.update_registers()
+        self.status_value.config(text="STOPPED", fg="red")
 
 
 if __name__ == "__main__":
