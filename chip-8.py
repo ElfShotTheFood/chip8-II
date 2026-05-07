@@ -5,7 +5,7 @@ Implements a tkinter-based dialog window to control the CHIP-8 VM, with:
 1. Control Section: RUN, STOP, SINGLE STEP, RESET buttons and delay configuration
 2. Registers Section: Display of V0-VF, I, PC, SP, DT, ST registers in single vertical column
 3. Stack Section: Display of stack contents (return addresses)
-4. Memory Section: Scrollable display of even CHIP-8 memory addresses (starting at 0x200) with edit capability
+4. Memory Section: Scrollable display of even CHIP-8 memory addresses (starting at 0x200) with edit capability and disassembly
 5. Instructions Section: Disassembly of instructions starting from PC
 
 Requires:
@@ -27,7 +27,7 @@ class Chip8Gui:
     def __init__(self, root):
         self.root = root
         self.root.title("CHIP-8 VM Controller")
-        self.root.geometry("1600x750")
+        self.root.geometry("2000x750")
 
         print("\nDEBUG: Chip8Gui.__init__() called")
         print("DEBUG: About to create VM instance (this will call memory.init())")
@@ -235,7 +235,7 @@ class Chip8Gui:
         self.mem_canvas.configure(scrollregion=self.mem_canvas.bbox("all"))
 
         # --- Instructions Frame (rightmost, narrow) ---
-        self.instr_frame = tk.LabelFrame(main_container, text="Instructions", padx=10, pady=10, width=200)
+        self.instr_frame = tk.LabelFrame(main_container, text="Instructions", padx=10, pady=10, width=300)
         self.instr_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False, padx=(5, 0))
         self.instr_frame.pack_propagate(False)
 
@@ -244,7 +244,7 @@ class Chip8Gui:
 
         # Instruction display (list of upcoming instructions)
         self.instr_labels = []
-        for i in range(20):  # Show 20 instructions
+        for i in range(20):
             frame = tk.Frame(instr_container)
             frame.pack(fill=tk.X, pady=2)
             
@@ -257,7 +257,7 @@ class Chip8Gui:
             bytes_label.pack(side=tk.LEFT, padx=(0, 5))
             
             # Instruction mnemonic label
-            mnemonic_label = tk.Label(frame, text="---", width=12, font=("Consolas", 9), anchor="w")
+            mnemonic_label = tk.Label(frame, text="---", width=25, font=("Consolas", 9), anchor="w")
             mnemonic_label.pack(side=tk.LEFT)
             
             self.instr_labels.append((addr_label, bytes_label, mnemonic_label))
@@ -386,12 +386,11 @@ class Chip8Gui:
         # Show stack entries (up to 16)
         stack_size = len(self.vm.stack)
         for i in range(min(stack_size, 16)):
-            addr = self.vm.stack[-(i+1)]  # Get from top (most recent)
+            addr = self.vm.stack[-(i+1)]
             self.stack_labels[i].config(text=f"{addr:04X}")
 
     def update_instructions(self):
         """Update the instruction disassembly display."""
-        # Show instructions starting from PC
         pc = self.vm.PC
         
         for i, (addr_label, bytes_label, mnemonic_label) in enumerate(self.instr_labels):
@@ -402,12 +401,10 @@ class Chip8Gui:
                 mnemonic_label.config(text="---")
                 continue
             
-            # Get instruction bytes
             byte1 = memory.read(addr)
             byte2 = memory.read(addr + 1)
             opcode = (byte1 << 8) | byte2
             
-            # Disassemble
             mnemonic = self.disassemble_opcode(opcode)
             
             addr_label.config(text=f"{addr:04X}")
@@ -415,7 +412,7 @@ class Chip8Gui:
             mnemonic_label.config(text=mnemonic)
 
     def disassemble_opcode(self, opcode):
-        """Disassemble a CHIP-8 opcode to a string."""
+        """Disassemble a CHIP-8 opcode to a string using RCA Cosmac VIP style syntax."""
         n1 = (opcode >> 12) & 0xF
         n2 = (opcode >> 8) & 0xF
         n3 = (opcode >> 4) & 0xF
@@ -428,7 +425,7 @@ class Chip8Gui:
         elif opcode == 0x00EE:
             return "RET"
         elif n1 == 0x1:
-            return f"JP 0x{nnn:03X}"
+            return f"JMP 0x{nnn:03X}"
         elif n1 == 0x2:
             return f"CALL 0x{nnn:03X}"
         elif n1 == 0x3:
@@ -523,6 +520,7 @@ class Chip8Gui:
             
             self.addr_labels[addr] = (addr_canvas, text_id, rect_id, addr_frame)
 
+            # Value display/entry (4-digit hex)
             value_display = tk.Label(row, text=value_hex, width=6, font=("Consolas", 10),
                                     bg="white", relief="sunken", anchor="w")
             value_display.pack(side=tk.LEFT)
@@ -532,6 +530,11 @@ class Chip8Gui:
                            insertofftime=0, insertwidth=2, exportselection=0,
                            bg="white", relief="sunken")
             entry.insert(0, value_hex)
+
+            # Disassembly label - shows the instruction for this address
+            disasm_label = tk.Label(row, text=self.disassemble_opcode(value), 
+                                   font=("Consolas", 9), anchor="w", fg="blue", width=30)
+            disasm_label.pack(side=tk.LEFT, padx=(10, 0))
 
             def on_key_press(event, ent=entry):
                 if len(event.char) == 1 and event.char.isprintable():
@@ -544,14 +547,14 @@ class Chip8Gui:
                         ent.icursor(cursor_pos + 1)
                         return "break"
 
-            def start_edit(event, lbl=value_display, ent=entry, a=addr):
+            def start_edit(event, lbl=value_display, ent=entry, a=addr, disasm_lbl=disasm_label):
                 lbl.pack_forget()
                 ent.pack(side=tk.LEFT)
                 ent.focus_set()
                 ent.select_range(0, tk.END)
                 ent.icursor(0)
 
-            def finish_edit_with_nav(event, lbl=value_display, ent=entry, a=addr, direction=1):
+            def finish_edit_with_nav(event, lbl=value_display, ent=entry, a=addr, disasm_lbl=disasm_label, direction=1):
                 text = ent.get().strip().upper()
                 if not text:
                     text = "0000"
@@ -575,6 +578,9 @@ class Chip8Gui:
                 lbl.config(text=formatted)
                 ent.delete(0, tk.END)
                 ent.insert(0, formatted)
+
+                # Update disassembly label
+                disasm_label.config(text=self.disassemble_opcode(value))
 
                 ent.pack_forget()
                 lbl.pack(side=tk.LEFT)
@@ -602,15 +608,15 @@ class Chip8Gui:
                 return "break"
 
             value_display.bind("<Button-1>", start_edit)
-            entry.bind("<Return>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))
-            entry.bind("<Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, 1))
-            entry.bind("<Shift-Tab>", lambda e, lbl=value_display, ent=entry, a=addr: finish_edit_with_nav(e, lbl, ent, a, -1))
+            entry.bind("<Return>", lambda e, lbl=value_display, ent=entry, a=addr, disasm_lbl=disasm_label: finish_edit_with_nav(e, lbl, ent, a, disasm_lbl, 1))
+            entry.bind("<Tab>", lambda e, lbl=value_display, ent=entry, a=addr, disasm_lbl=disasm_label: finish_edit_with_nav(e, lbl, ent, a, disasm_lbl, 1))
+            entry.bind("<Shift-Tab>", lambda e, lbl=value_display, ent=entry, a=addr, disasm_lbl=disasm_label: finish_edit_with_nav(e, lbl, ent, a, disasm_lbl, -1))
             entry.bind("<Escape>", cancel_edit)
             entry.bind("<KeyPress>", on_key_press)
             entry.bind("<FocusOut>", lambda e, lbl=value_display, ent=entry: (
                 ent.pack_forget(), lbl.pack(side=tk.LEFT)))
 
-            self.memory_entries[addr] = {"entry": entry, "label": value_display}
+            self.memory_entries[addr] = {"entry": entry, "label": value_display, "disasm": disasm_label}
 
     def load_rom_from_file(self):
         """Open file dialog to select a ROM file and load it into memory at 0x200."""
@@ -737,6 +743,9 @@ class Chip8Gui:
             widgets["label"].config(text=formatted)
             widgets["entry"].delete(0, tk.END)
             widgets["entry"].insert(0, formatted)
+            # Update disassembly label
+            if "disasm" in widgets:
+                widgets["disasm"].config(text=self.disassemble_opcode(value))
 
     def pump_pygame_events(self):
         """Periodically pump pygame events to keep the display responsive."""
