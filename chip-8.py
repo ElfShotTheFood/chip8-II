@@ -4,7 +4,9 @@ CHIP-8 VM Control Module
 Implements a tkinter-based dialog window to control the CHIP-8 VM, with:
 1. Control Section: RUN, STOP, SINGLE STEP, RESET buttons and delay configuration
 2. Registers Section: Display of V0-VF, I, PC, SP, DT, ST registers in single vertical column
-3. Memory Section: Scrollable display of even CHIP-8 memory addresses (starting at 0x200) with edit capability
+3. Stack Section: Display of stack contents (return addresses)
+4. Memory Section: Scrollable display of even CHIP-8 memory addresses (starting at 0x200) with edit capability
+5. Instructions Section: Disassembly of instructions starting from PC
 
 Requires:
 - tkinter (built-in)
@@ -25,7 +27,7 @@ class Chip8Gui:
     def __init__(self, root):
         self.root = root
         self.root.title("CHIP-8 VM Controller")
-        self.root.geometry("1100x750")
+        self.root.geometry("1600x750")
 
         print("\nDEBUG: Chip8Gui.__init__() called")
         print("DEBUG: About to create VM instance (this will call memory.init())")
@@ -96,20 +98,18 @@ class Chip8Gui:
         )
         self.status_value.pack(side=tk.LEFT, padx=5)
 
-        # --- Main container for Registers and Memory (side by side) ---
+        # --- Main container for all sections (side by side) ---
         main_container = tk.Frame(self.root)
         main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # --- Registers Frame (left side, narrower) ---
-        self.reg_frame = tk.LabelFrame(main_container, text="Registers", padx=10, pady=10, width=250)
+        # --- Registers Frame (leftmost, narrow) ---
+        self.reg_frame = tk.LabelFrame(main_container, text="Registers", padx=10, pady=10, width=180)
         self.reg_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
         self.reg_frame.pack_propagate(False)
 
-        # Single vertical column for all registers
         reg_container = tk.Frame(self.reg_frame)
         reg_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Create special registers (PC, SP, I, DT, ST) in a single column
         self.reg_labels = {}
 
         # PC register
@@ -163,12 +163,30 @@ class Chip8Gui:
             
             self.reg_labels[reg_name] = value_label
 
-        # --- Memory Frame (right side, takes remaining space) ---
+        # --- Stack Frame (next to Registers, same width) ---
+        self.stack_frame = tk.LabelFrame(main_container, text="Stack", padx=10, pady=10, width=180)
+        self.stack_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=(5, 0))
+        self.stack_frame.pack_propagate(False)
+
+        stack_container = tk.Frame(self.stack_frame)
+        stack_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Stack display (list of up to 16 return addresses)
+        self.stack_labels = []
+        for i in range(16):
+            frame = tk.Frame(stack_container)
+            frame.pack(fill=tk.X, pady=2)
+            
+            label = tk.Label(frame, text="----------", width=8, font=("Consolas", 10), anchor="w")
+            label.pack(side=tk.LEFT)
+            self.stack_labels.append(label)
+
+        # --- Memory Frame (center, expands) ---
         self.mem_frame = tk.LabelFrame(
             main_container, text="Memory", padx=10, pady=10,
             takefocus=0, highlightthickness=0
         )
-        self.mem_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0), pady=0)
+        self.mem_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 5))
 
         # Button row frame
         self.mem_button_frame = tk.Frame(self.mem_frame, highlightthickness=0, bd=0)
@@ -216,11 +234,41 @@ class Chip8Gui:
         self.mem_inner_frame.update_idletasks()
         self.mem_canvas.configure(scrollregion=self.mem_canvas.bbox("all"))
 
+        # --- Instructions Frame (rightmost, narrow) ---
+        self.instr_frame = tk.LabelFrame(main_container, text="Instructions", padx=10, pady=10, width=200)
+        self.instr_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False, padx=(5, 0))
+        self.instr_frame.pack_propagate(False)
+
+        instr_container = tk.Frame(self.instr_frame)
+        instr_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Instruction display (list of upcoming instructions)
+        self.instr_labels = []
+        for i in range(20):  # Show 20 instructions
+            frame = tk.Frame(instr_container)
+            frame.pack(fill=tk.X, pady=2)
+            
+            # Address label
+            addr_label = tk.Label(frame, text="0000", width=6, font=("Consolas", 9), anchor="w", fg="gray")
+            addr_label.pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Instruction bytes label
+            bytes_label = tk.Label(frame, text="00 00", width=6, font=("Consolas", 9), anchor="w")
+            bytes_label.pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Instruction mnemonic label
+            mnemonic_label = tk.Label(frame, text="---", width=12, font=("Consolas", 9), anchor="w")
+            mnemonic_label.pack(side=tk.LEFT)
+            
+            self.instr_labels.append((addr_label, bytes_label, mnemonic_label))
+
         # Start pygame event pumping
         self.pump_pygame_events()
         
         # Initial register display
         self.update_registers()
+        self.update_stack()
+        self.update_instructions()
         
         # Highlight initial PC address
         if self.vm.PC in self.addr_labels:
@@ -328,6 +376,126 @@ class Chip8Gui:
             self.prev_ST = self.vm.sound_timer
         else:
             self.ST_label.config(text=f"{self.vm.sound_timer:02X}", fg="black")
+
+    def update_stack(self):
+        """Update the stack display."""
+        # Clear all labels first
+        for label in self.stack_labels:
+            label.config(text="----------")
+        
+        # Show stack entries (up to 16)
+        stack_size = len(self.vm.stack)
+        for i in range(min(stack_size, 16)):
+            addr = self.vm.stack[-(i+1)]  # Get from top (most recent)
+            self.stack_labels[i].config(text=f"{addr:04X}")
+
+    def update_instructions(self):
+        """Update the instruction disassembly display."""
+        # Show instructions starting from PC
+        pc = self.vm.PC
+        
+        for i, (addr_label, bytes_label, mnemonic_label) in enumerate(self.instr_labels):
+            addr = pc + i * 2
+            if addr >= 0x1000:
+                addr_label.config(text="----")
+                bytes_label.config(text="-- --")
+                mnemonic_label.config(text="---")
+                continue
+            
+            # Get instruction bytes
+            byte1 = memory.read(addr)
+            byte2 = memory.read(addr + 1)
+            opcode = (byte1 << 8) | byte2
+            
+            # Disassemble
+            mnemonic = self.disassemble_opcode(opcode)
+            
+            addr_label.config(text=f"{addr:04X}")
+            bytes_label.config(text=f"{byte1:02X} {byte2:02X}")
+            mnemonic_label.config(text=mnemonic)
+
+    def disassemble_opcode(self, opcode):
+        """Disassemble a CHIP-8 opcode to a string."""
+        n1 = (opcode >> 12) & 0xF
+        n2 = (opcode >> 8) & 0xF
+        n3 = (opcode >> 4) & 0xF
+        n4 = opcode & 0xF
+        nn = opcode & 0xFF
+        nnn = opcode & 0xFFF
+
+        if opcode == 0x00E0:
+            return "CLS"
+        elif opcode == 0x00EE:
+            return "RET"
+        elif n1 == 0x1:
+            return f"JP 0x{nnn:03X}"
+        elif n1 == 0x2:
+            return f"CALL 0x{nnn:03X}"
+        elif n1 == 0x3:
+            return f"SE V{n2:X}, 0x{nn:02X}"
+        elif n1 == 0x4:
+            return f"SNE V{n2:X}, 0x{nn:02X}"
+        elif n1 == 0x5 and n4 == 0:
+            return f"SE V{n2:X}, V{n3:X}"
+        elif n1 == 0x6:
+            return f"LD V{n2:X}, 0x{nn:02X}"
+        elif n1 == 0x7:
+            return f"ADD V{n2:X}, 0x{nn:02X}"
+        elif n1 == 0x8:
+            if n4 == 0x0:
+                return f"LD V{n2:X}, V{n3:X}"
+            elif n4 == 0x1:
+                return f"OR V{n2:X}, V{n3:X}"
+            elif n4 == 0x2:
+                return f"AND V{n2:X}, V{n3:X}"
+            elif n4 == 0x3:
+                return f"XOR V{n2:X}, V{n3:X}"
+            elif n4 == 0x4:
+                return f"ADD V{n2:X}, V{n3:X}"
+            elif n4 == 0x5:
+                return f"SUB V{n2:X}, V{n3:X}"
+            elif n4 == 0x6:
+                return f"SHR V{n2:X}"
+            elif n4 == 0x7:
+                return f"SUBN V{n2:X}, V{n3:X}"
+            elif n4 == 0xE:
+                return f"SHL V{n2:X}"
+        elif n1 == 0x9 and n4 == 0:
+            return f"SNE V{n2:X}, V{n3:X}"
+        elif n1 == 0xA:
+            return f"LD I, 0x{nnn:03X}"
+        elif n1 == 0xB:
+            return f"JP V0, 0x{nnn:03X}"
+        elif n1 == 0xC:
+            return f"RND V{n2:X}, 0x{nn:02X}"
+        elif n1 == 0xD:
+            return f"DRW V{n2:X}, V{n3:X}, {n4}"
+        elif n1 == 0xE:
+            if nn == 0x9E:
+                return f"SKP V{n2:X}"
+            elif nn == 0xA1:
+                return f"SKNP V{n2:X}"
+        elif n1 == 0xF:
+            if nn == 0x07:
+                return f"LD V{n2:X}, DT"
+            elif nn == 0x0A:
+                return f"LD V{n2:X}, K"
+            elif nn == 0x15:
+                return f"LD DT, V{n2:X}"
+            elif nn == 0x18:
+                return f"LD ST, V{n2:X}"
+            elif nn == 0x1E:
+                return f"ADD I, V{n2:X}"
+            elif nn == 0x29:
+                return f"LD F, V{n2:X}"
+            elif nn == 0x33:
+                return f"LD B, V{n2:X}"
+            elif nn == 0x55:
+                return f"LD [I], V{n2:X}"
+            elif nn == 0x65:
+                return f"LD V{n2:X}, [I]"
+        
+        return f"??? 0x{opcode:04X}"
 
     def populate_memory(self):
         """Populate the memory frame with rows for each even address starting at 0x200."""
@@ -470,6 +638,8 @@ class Chip8Gui:
             
             self.refresh_memory()
             self.update_registers()
+            self.update_stack()
+            self.update_instructions()
 
             messagebox.showinfo("ROM Loaded", f"Loaded {len(rom_data)} bytes from {file_path}")
 
@@ -535,6 +705,8 @@ class Chip8Gui:
             # Refresh displays
             self.refresh_memory()
             self.update_registers()
+            self.update_stack()
+            self.update_instructions()
 
             messagebox.showinfo("Memory Cleared", "Memory from 0x200 to 0xFFF has been cleared.")
 
@@ -605,6 +777,8 @@ class Chip8Gui:
             try:
                 self.vm.execute_instruction()
                 self.update_registers()
+                self.update_stack()
+                self.update_instructions()
             except Exception as e:
                 messagebox.showerror("VM Execution Error", str(e))
                 self.stop_run()
@@ -627,6 +801,8 @@ class Chip8Gui:
         try:
             self.vm.execute_instruction()
             self.update_registers()
+            self.update_stack()
+            self.update_instructions()
         except Exception as e:
             messagebox.showerror("VM Execution Error", str(e))
 
@@ -637,6 +813,8 @@ class Chip8Gui:
         self.set_memory_editable(True)
         self.refresh_memory()
         self.update_registers()
+        self.update_stack()
+        self.update_instructions()
         self.status_value.config(text="STOPPED", fg="red")
 
 
