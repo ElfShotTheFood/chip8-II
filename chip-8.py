@@ -3,7 +3,7 @@ CHIP-8 VM Control Module
 
 Implements a tkinter-based dialog window to control the CHIP-8 VM, with:
 1. Control Section: RUN, STOP, SINGLE STEP, RESET buttons and delay configuration
-2. Registers Section: Display of V0-VF, I, PC, SP, DT, ST registers
+2. Registers Section: Display of V0-VF, I, PC, SP, DT, ST registers in single vertical column
 3. Memory Section: Scrollable display of even CHIP-8 memory addresses (starting at 0x200) with edit capability
 
 Requires:
@@ -25,7 +25,7 @@ class Chip8Gui:
     def __init__(self, root):
         self.root = root
         self.root.title("CHIP-8 VM Controller")
-        self.root.geometry("900x750")
+        self.root.geometry("1100x750")
 
         print("\nDEBUG: Chip8Gui.__init__() called")
         print("DEBUG: About to create VM instance (this will call memory.init())")
@@ -96,83 +96,79 @@ class Chip8Gui:
         )
         self.status_value.pack(side=tk.LEFT, padx=5)
 
-        # --- Registers Frame ---
-        self.reg_frame = tk.LabelFrame(self.root, text="Registers", padx=10, pady=10)
-        self.reg_frame.pack(fill=tk.X, padx=10, pady=5)
+        # --- Main container for Registers and Memory (side by side) ---
+        main_container = tk.Frame(self.root)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
+        # --- Registers Frame (left side, narrower) ---
+        self.reg_frame = tk.LabelFrame(main_container, text="Registers", padx=10, pady=10, width=250)
+        self.reg_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
+        self.reg_frame.pack_propagate(False)
+
+        # Single vertical column for all registers
         reg_container = tk.Frame(self.reg_frame)
-        reg_container.pack(fill=tk.X, padx=5, pady=5)
+        reg_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Left column: PC, SP, I
-        left_col = tk.Frame(reg_container)
-        left_col.pack(side=tk.LEFT, padx=(0, 15), anchor="n")
+        # Create special registers (PC, SP, I, DT, ST) in a single column
+        self.reg_labels = {}
 
         # PC register
-        pc_frame = tk.Frame(left_col)
+        pc_frame = tk.Frame(reg_container)
         pc_frame.pack(fill=tk.X, pady=2)
         self._create_reg_name_canvas(pc_frame, "PC", width=3)
         self.PC_label = tk.Label(pc_frame, text="0200", width=6, font=("Consolas", 10))
         self.PC_label.pack(side=tk.LEFT)
 
         # SP register
-        sp_frame = tk.Frame(left_col)
+        sp_frame = tk.Frame(reg_container)
         sp_frame.pack(fill=tk.X, pady=2)
         self._create_reg_name_canvas(sp_frame, "SP", width=3)
         self.SP_label = tk.Label(sp_frame, text="0000", width=6, font=("Consolas", 10))
         self.SP_label.pack(side=tk.LEFT)
 
         # I register
-        i_frame = tk.Frame(left_col)
+        i_frame = tk.Frame(reg_container)
         i_frame.pack(fill=tk.X, pady=2)
         self._create_reg_name_canvas(i_frame, "I", width=3)
         self.I_label = tk.Label(i_frame, text="0000", width=6, font=("Consolas", 10))
         self.I_label.pack(side=tk.LEFT)
 
-        # Middle column: DT, ST
-        mid_col = tk.Frame(reg_container)
-        mid_col.pack(side=tk.LEFT, padx=(0, 15), anchor="n")
-
         # DT register
-        dt_frame = tk.Frame(mid_col)
+        dt_frame = tk.Frame(reg_container)
         dt_frame.pack(fill=tk.X, pady=2)
         self._create_reg_name_canvas(dt_frame, "DT", width=3)
         self.DT_label = tk.Label(dt_frame, text="00", width=4, font=("Consolas", 10))
         self.DT_label.pack(side=tk.LEFT)
 
         # ST register
-        st_frame = tk.Frame(mid_col)
+        st_frame = tk.Frame(reg_container)
         st_frame.pack(fill=tk.X, pady=2)
         self._create_reg_name_canvas(st_frame, "ST", width=3)
         self.ST_label = tk.Label(st_frame, text="00", width=4, font=("Consolas", 10))
         self.ST_label.pack(side=tk.LEFT)
 
-        # Right section: V0-VF in 4x4 grid
-        right_section = tk.Frame(reg_container)
-        right_section.pack(side=tk.LEFT, padx=(0, 0), anchor="n")
+        # Add separator
+        separator = tk.Frame(reg_container, height=2, bg="gray")
+        separator.pack(fill=tk.X, pady=10)
 
-        self.reg_labels = {}
-
+        # Create V0-VF registers in a single vertical column
         for i in range(16):
-            col = i // 4
-            row = i % 4
             reg_name = f"V{i:X}"
+            frame = tk.Frame(reg_container)
+            frame.pack(fill=tk.X, pady=2)
             
-            reg_frame = tk.Frame(right_section)
-            reg_frame.grid(row=row, column=col, padx=10, pady=2, sticky="w")
-            
-            self._create_reg_name_canvas(reg_frame, reg_name, width=3)
-            
-            value_label = tk.Label(reg_frame, text="00", width=4, font=("Consolas", 10))
+            self._create_reg_name_canvas(frame, reg_name, width=3)
+            value_label = tk.Label(frame, text="00", width=4, font=("Consolas", 10))
             value_label.pack(side=tk.LEFT)
             
             self.reg_labels[reg_name] = value_label
 
-        # --- Memory Frame ---
+        # --- Memory Frame (right side, takes remaining space) ---
         self.mem_frame = tk.LabelFrame(
-            self.root, text="Memory", padx=10, pady=10,
+            main_container, text="Memory", padx=10, pady=10,
             takefocus=0, highlightthickness=0
         )
-        self.mem_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        self.mem_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0), pady=0)
 
         # Button row frame
         self.mem_button_frame = tk.Frame(self.mem_frame, highlightthickness=0, bd=0)
@@ -190,7 +186,7 @@ class Chip8Gui:
         )
         self.save_rom_btn.pack(side=tk.LEFT, padx=5)
 
-        # CLEAR button - new
+        # CLEAR button
         self.clear_mem_btn = tk.Button(
             self.mem_button_frame, text="CLEAR", command=self.clear_memory, width=10
         )
@@ -209,8 +205,6 @@ class Chip8Gui:
 
         # Inner frame to hold memory address rows
         self.mem_inner_frame = tk.Frame(self.mem_canvas, highlightthickness=0, bd=0)
-        # Padding to reserve space for button at top
-        self.mem_inner_frame.pack_configure(pady=(25, 0))
         self.mem_canvas.create_window(
             (0, 0), window=self.mem_inner_frame, anchor=tk.NW
         )
